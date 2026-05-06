@@ -1,0 +1,57 @@
+# 配置示例文件
+
+# 多数据源配置
+sources:
+  # Confluence 数据源列表
+  confluence:
+    - name: "company-main"
+      url: "https://your-domain.atlassian.net"
+      username: "your-email@example.com"
+      api_token: "${CONFLUENCE_COMPANY_TOKEN}"
+      spaces:
+        - key: "ENG"
+          name: "Engineering"
+        - key: "PROD"
+          name: "Product"
+
+    - name: "company-internal"
+      url: "https://internal.atlassian.net"
+      username: "user@company.com"
+      api_token: "${CONFLUENCE_INTERNAL_TOKEN}"
+      spaces:
+        - key: "HR"
+          name: "Human Resources"
+
+  # Jira 数据源列表
+  jira:
+    - name: "company-main"
+      url: "https://your-domain.atlassian.net"
+      username: "your-email@example.com"
+      api_token: "${JIRA_COMPANY_TOKEN}"
+      projects:
+        - key: "PROJ"
+          name: "Project Alpha"
+        - key: "INFRA"
+          name: "Infrastructure"
+
+    - name: "client-jira"
+      url: "https://client.atlassian.net"
+      username: "user@client.com"
+      api_token: "${JIRA_CLIENT_TOKEN}"
+      projects:
+        - key: "CLIENT"
+          name: "Client Project"
+
+# 输出配置
+output:
+  base_dir: "./sources"
+
+# 增量更新配置
+sync:
+  state_file: "./.atlassian-sync-state.json"
+
+# 错误处理配置
+error_handling:
+  max_retries: 3
+  retry_delay: 5
+  error_log: "./sync-errors.log"

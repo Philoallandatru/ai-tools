@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# 配置和状态文件
+config.yaml
+.atlassian-sync-state.json
+sync-errors.log
+scheduler.log
+task-scheduler.log
+
+# 输出目录（爬取的源文件）
+sources/
+# 保留测试文件
+!test-sources/
+
+# llm-wiki-compiler 生成的文件
+wiki/
+.llmwiki/
+
+# Node.js
+node_modules/
+package-lock.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 环境变量（敏感信息）
+.env
+
+# uv
+.python-version
+uv.lock
+
+# OS
+.DS_Store
+Thumbs.db

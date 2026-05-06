@@ -1,0 +1,25 @@
+error_handling:
+  error_log: ./sync-errors.log
+  max_retries: 3
+  retry_delay: 5
+output:
+  base_dir: ./sources
+sources:
+  confluence:
+  - api_token: ${CONFLUENCE_API_TOKEN}
+    name: my-confluence
+    spaces:
+    - key: ENG
+      name: Engineering
+    url: https://your-domain.atlassian.net
+    username: your-email@example.com
+  jira:
+  - api_token: ${JIRA_API_TOKEN}
+    name: my-jira
+    projects:
+    - key: PROJ
+      name: Project Alpha
+    url: https://your-domain.atlassian.net
+    username: your-email@example.com
+sync:
+  state_file: ./.atlassian-sync-state.json
