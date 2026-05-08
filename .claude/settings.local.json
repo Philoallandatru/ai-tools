@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf .llmwiki/state.json)",
+      "Bash(uv run *)"
+    ]
+  }
+}

@@ -355,15 +355,26 @@ class JiraCrawler:
             attachment: 附件信息
 
         Returns:
-            附件数据字典，包含 filename 和 content
+            附件数据字典，包含 filename 和 content (bytes)
         """
         @self.error_handler.retry_on_failure
         def download():
             content_url = attachment['content']
             response = self.client.get(content_url)
+
+            # 确保返回字节内容
+            if isinstance(response, bytes):
+                content = response
+            elif isinstance(response, str):
+                content = response.encode('utf-8')
+            elif hasattr(response, 'content'):
+                content = response.content
+            else:
+                content = str(response).encode('utf-8')
+
             return {
                 'filename': attachment['filename'],
-                'content': response
+                'content': content
             }
 
         return download()
