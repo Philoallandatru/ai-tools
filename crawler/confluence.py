@@ -12,17 +12,23 @@ from .error_handler import ErrorHandler
 class ConfluenceCrawler:
     """Confluence 爬虫 - 爬取 Confluence 页面和附件"""
 
-    def __init__(self, url: str, username: str, token: str, error_handler: ErrorHandler):
+    def __init__(self, url: str, token: str, error_handler: ErrorHandler, username: Optional[str] = None, is_cloud: bool = True):
         """
         初始化 Confluence 爬虫
 
         Args:
             url: Confluence 实例 URL
-            username: 用户名
-            token: API token
+            token: API token (Cloud) 或 Personal Access Token (Server)
             error_handler: 错误处理器
+            username: 用户名 (仅 Cloud 需要)
+            is_cloud: 是否为 Cloud 版本 (默认 True)
         """
-        self.client = Confluence(url=url, username=username, password=token, cloud=True)
+        if is_cloud:
+            # Cloud 版本需要 username + API token
+            self.client = Confluence(url=url, username=username, password=token, cloud=True)
+        else:
+            # Server 版本只需要 Personal Access Token
+            self.client = Confluence(url=url, token=token, cloud=False)
         self.error_handler = error_handler
         self.base_url = url
 

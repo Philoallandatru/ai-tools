@@ -1,57 +1,68 @@
-# 配置示例文件
+# Atlassian 知识管理系统配置示例
 
-# 多数据源配置
 sources:
-  # Confluence 数据源列表
   confluence:
-    - name: "company-main"
+    # Confluence Cloud 配置
+    - name: "my-confluence-cloud"
+      type: "cloud"  # 可选，默认为 cloud
       url: "https://your-domain.atlassian.net"
-      username: "your-email@example.com"
-      api_token: "${CONFLUENCE_COMPANY_TOKEN}"
+      username: "your-email@example.com"  # Cloud 必需
+      api_token: "your-api-token"  # Cloud API Token
       spaces:
-        - key: "ENG"
-          name: "Engineering"
-        - key: "PROD"
-          name: "Product"
+        - key: "SPACE1"
+          name: "Space 1"
 
-    - name: "company-internal"
-      url: "https://internal.atlassian.net"
-      username: "user@company.com"
-      api_token: "${CONFLUENCE_INTERNAL_TOKEN}"
+    # Confluence Server 配置
+    - name: "my-confluence-server"
+      type: "server"  # 必须指定为 server
+      url: "https://confluence.your-company.com"
+      api_token: "your-personal-access-token"  # Server PAT
+      # username 不需要（Server 使用 PAT 认证）
       spaces:
-        - key: "HR"
-          name: "Human Resources"
+        - key: "DEV"
+          name: "Development"
 
-  # Jira 数据源列表
   jira:
-    - name: "company-main"
+    # Jira Cloud 配置
+    - name: "my-jira-cloud"
+      type: "cloud"  # 可选，默认为 cloud
       url: "https://your-domain.atlassian.net"
-      username: "your-email@example.com"
-      api_token: "${JIRA_COMPANY_TOKEN}"
+      username: "your-email@example.com"  # Cloud 必需
+      api_token: "your-api-token"  # Cloud API Token
       projects:
         - key: "PROJ"
-          name: "Project Alpha"
-        - key: "INFRA"
-          name: "Infrastructure"
+          name: "Project"
 
-    - name: "client-jira"
-      url: "https://client.atlassian.net"
-      username: "user@client.com"
-      api_token: "${JIRA_CLIENT_TOKEN}"
+    # Jira Server 配置
+    - name: "my-jira-server"
+      type: "server"  # 必须指定为 server
+      url: "https://jira.your-company.com"
+      api_token: "your-personal-access-token"  # Server PAT
+      # username 不需要（Server 使用 PAT 认证）
       projects:
-        - key: "CLIENT"
-          name: "Client Project"
+        - key: "DEV"
+          name: "Development"
 
-# 输出配置
 output:
   base_dir: "./sources"
 
-# 增量更新配置
 sync:
   state_file: "./.atlassian-sync-state.json"
 
-# 错误处理配置
 error_handling:
   max_retries: 3
   retry_delay: 5
   error_log: "./sync-errors.log"
+
+# 认证说明：
+#
+# Cloud 版本：
+#   - 需要 username（邮箱）和 API Token
+#   - API Token 生成：https://id.atlassian.com/manage-profile/security/api-tokens
+#   - type: "cloud" 或省略（默认）
+#
+# Server 版本：
+#   - 只需要 Personal Access Token (PAT)
+#   - PAT 生成：在 Server 实例的个人设置中创建
+#   - type: "server" 必须指定
+#   - 不需要 username

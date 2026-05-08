@@ -138,11 +138,13 @@ def sync(config, source, type):
             click.echo("Syncing Confluence...")
             for src in sources_to_sync['confluence']:
                 click.echo(f"\nSource: {src['name']}")
+                is_cloud = src.get('type', 'cloud').lower() == 'cloud'
                 crawler = ConfluenceCrawler(
                     src['url'],
-                    src['username'],
                     src['api_token'],
-                    error_handler
+                    error_handler,
+                    username=src.get('username'),
+                    is_cloud=is_cloud
                 )
                 for space in src['spaces']:
                     click.echo(f"  Processing space: {space['key']}")
@@ -153,11 +155,13 @@ def sync(config, source, type):
             click.echo("\nSyncing Jira...")
             for src in sources_to_sync['jira']:
                 click.echo(f"\nSource: {src['name']}")
+                is_cloud = src.get('type', 'cloud').lower() == 'cloud'
                 crawler = JiraCrawler(
                     src['url'],
-                    src['username'],
                     src['api_token'],
-                    error_handler
+                    error_handler,
+                    username=src.get('username'),
+                    is_cloud=is_cloud
                 )
                 for project in src['projects']:
                     click.echo(f"  Processing project: {project['key']}")
