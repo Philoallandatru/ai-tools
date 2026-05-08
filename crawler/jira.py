@@ -37,7 +37,7 @@ class JiraCrawler:
         source_name: str,
         project_key: str,
         storage: StorageManager
-    ):
+    ) -> Dict[str, int]:
         """
         爬取指定 project 的所有 issues
 
@@ -45,7 +45,12 @@ class JiraCrawler:
             source_name: 数据源名称
             project_key: Project key
             storage: 存储管理器
+
+        Returns:
+            统计信息字典 {'issues': int, 'attachments': int}
         """
+        stats = {'issues': 0, 'attachments': 0}
+
         try:
             # 使用 JQL 查询所有 issues，获取所有字段
             jql = f'project = {project_key} ORDER BY updated DESC'
@@ -76,7 +81,9 @@ class JiraCrawler:
 
                     # 检查是否需要更新
                     if current_updated > last_updated_local:
-                        self._process_issue(source_name, project_key, issue, storage)
+                        attachments_count = self._process_issue(source_name, project_key, issue, storage)
+                        stats['issues'] += 1
+                        stats['attachments'] += attachments_count
 
                         # 更新状态
                         state[issue_key] = {
@@ -98,13 +105,15 @@ class JiraCrawler:
                 {}
             )
 
+        return stats
+
     def _process_issue(
         self,
         source_name: str,
         project_key: str,
         issue: Dict[str, Any],
         storage: StorageManager
-    ):
+    ) -> int:
         """
         处理单个 issue：构建 markdown + 下载附件
 
@@ -113,6 +122,9 @@ class JiraCrawler:
             project_key: Project key
             issue: Issue 数据
             storage: 存储管理器
+
+        Returns:
+            附件数量
         """
         try:
             # 构建完整的 markdown 内容
@@ -134,6 +146,8 @@ class JiraCrawler:
                 attachments=attachments
             )
 
+            return len(attachments)
+
         except Exception as e:
             self.error_handler.log_error(
                 'process_jira_issue',
@@ -141,6 +155,7 @@ class JiraCrawler:
                 (issue.get('key'), issue.get('fields', {}).get('summary')),
                 {}
             )
+            return 0
 
     def _build_complete_issue_markdown(
         self,

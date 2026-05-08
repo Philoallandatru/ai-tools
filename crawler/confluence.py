@@ -37,7 +37,7 @@ class ConfluenceCrawler:
         source_name: str,
         space_key: str,
         storage: StorageManager
-    ):
+    ) -> Dict[str, int]:
         """
         爬取指定 space 的所有页面
 
@@ -45,7 +45,12 @@ class ConfluenceCrawler:
             source_name: 数据源名称
             space_key: Space key
             storage: 存储管理器
+
+        Returns:
+            统计信息字典 {'pages': int, 'attachments': int}
         """
+        stats = {'pages': 0, 'attachments': 0}
+
         try:
             # 获取 space 的所有页面
             pages = self.client.get_all_pages_from_space(
@@ -64,7 +69,9 @@ class ConfluenceCrawler:
 
                 # 检查是否需要更新
                 if current_version > last_version:
-                    self._process_page(source_name, space_key, page, storage)
+                    attachments_count = self._process_page(source_name, space_key, page, storage)
+                    stats['pages'] += 1
+                    stats['attachments'] += attachments_count
 
                     # 更新状态
                     state[page_id] = {
@@ -81,13 +88,15 @@ class ConfluenceCrawler:
                 {}
             )
 
+        return stats
+
     def _process_page(
         self,
         source_name: str,
         space_key: str,
         page: Dict[str, Any],
         storage: StorageManager
-    ):
+    ) -> int:
         """
         处理单个页面：转换 + 下载附件
 
@@ -96,6 +105,9 @@ class ConfluenceCrawler:
             space_key: Space key
             page: 页面数据
             storage: 存储管理器
+
+        Returns:
+            附件数量
         """
         try:
             # 转换 HTML → Markdown
@@ -121,6 +133,8 @@ class ConfluenceCrawler:
                 attachments=attachments
             )
 
+            return len(attachments)
+
         except Exception as e:
             import traceback
             tb = traceback.format_exc()
@@ -131,6 +145,7 @@ class ConfluenceCrawler:
                 {},
                 tb
             )
+            return 0
 
     def _build_metadata(
         self,
