@@ -295,7 +295,25 @@ class JiraCrawler:
         """
         try:
             comments_data = self.client.issue_get_comments(issue_key)
-            return comments_data.get('comments', [])
+            if isinstance(comments_data, dict):
+                return comments_data.get('comments', [])
+            else:
+                # 如果返回的不是字典，记录错误
+                self.error_handler.log_error(
+                    'get_jira_comments',
+                    f'Unexpected response type: {type(comments_data)}',
+                    (issue_key,),
+                    {}
+                )
+                return []
+        except json.JSONDecodeError as e:
+            self.error_handler.log_error(
+                'get_jira_comments',
+                f'JSON decode error: {str(e)}',
+                (issue_key,),
+                {}
+            )
+            return []
         except Exception as e:
             self.error_handler.log_error(
                 'get_jira_comments',
