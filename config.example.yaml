@@ -48,6 +48,7 @@ output:
 
 sync:
   state_file: "./.atlassian-sync-state.json"
+  max_workers: 5  # 并发数（1-10），默认 5
 
 error_handling:
   max_retries: 3

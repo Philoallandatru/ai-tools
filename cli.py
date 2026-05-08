@@ -10,6 +10,7 @@ import click
 import yaml
 from pathlib import Path
 from typing import Dict, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 强制使用 UTF-8 编码（Windows 兼容性）
 if sys.platform == 'win32':
@@ -22,6 +23,54 @@ from crawler.jira import JiraCrawler
 from crawler.storage import StorageManager
 from crawler.error_handler import ErrorHandler
 from crawler.doc_splitter import DocumentSplitter
+
+
+def _sync_confluence_space(source: Dict[str, Any], space_key: str, is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler) -> Dict[str, int]:
+    """
+    同步单个 Confluence space（用于并发执行）
+
+    Args:
+        source: 数据源配置
+        space_key: Space key
+        is_cloud: 是否为 Cloud 版本
+        storage: 存储管理器
+        error_handler: 错误处理器
+
+    Returns:
+        统计信息 {'pages': int, 'attachments': int}
+    """
+    crawler = ConfluenceCrawler(
+        source['url'],
+        source['api_token'],
+        error_handler,
+        username=source.get('username'),
+        is_cloud=is_cloud
+    )
+    return crawler.crawl_space(source['name'], space_key, storage)
+
+
+def _sync_jira_project(source: Dict[str, Any], project_key: str, is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler) -> Dict[str, int]:
+    """
+    同步单个 Jira project（用于并发执行）
+
+    Args:
+        source: 数据源配置
+        project_key: Project key
+        is_cloud: 是否为 Cloud 版本
+        storage: 存储管理器
+        error_handler: 错误处理器
+
+    Returns:
+        统计信息 {'issues': int, 'attachments': int}
+    """
+    crawler = JiraCrawler(
+        source['url'],
+        source['api_token'],
+        error_handler,
+        username=source.get('username'),
+        is_cloud=is_cloud
+    )
+    return crawler.crawl_project(source['name'], project_key, storage)
 
 
 @click.group()
@@ -130,45 +179,112 @@ def sync(config, source, type):
         storage = StorageManager(cfg['output']['base_dir'], cfg['sync']['state_file'])
         error_handler = ErrorHandler(**cfg['error_handling'])
 
+        # 获取并发数配置
+        max_workers = cfg.get('sync', {}).get('max_workers', 5)
+        max_workers = min(max_workers, 10)  # 限制最大并发数为 10
+
         # 根据参数过滤要同步的数据源
         sources_to_sync = filter_sources(cfg['sources'], source, type)
+
+        # 统计信息
+        stats = {
+            'confluence': {'pages': 0, 'attachments': 0},
+            'jira': {'issues': 0, 'attachments': 0}
+        }
 
         # 同步 Confluence
         if sources_to_sync['confluence']:
             click.echo("Syncing Confluence...")
+
+            # 准备所有任务
+            tasks = []
             for src in sources_to_sync['confluence']:
-                click.echo(f"\nSource: {src['name']}")
                 is_cloud = src.get('type', 'cloud').lower() == 'cloud'
-                crawler = ConfluenceCrawler(
-                    src['url'],
-                    src['api_token'],
-                    error_handler,
-                    username=src.get('username'),
-                    is_cloud=is_cloud
-                )
                 for space in src['spaces']:
-                    click.echo(f"  Processing space: {space['key']}")
-                    crawler.crawl_space(src['name'], space['key'], storage)
+                    tasks.append({
+                        'type': 'confluence',
+                        'source': src,
+                        'space_key': space['key'],
+                        'is_cloud': is_cloud
+                    })
+
+            # 并发执行
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {}
+                for task in tasks:
+                    future = executor.submit(
+                        _sync_confluence_space,
+                        task['source'],
+                        task['space_key'],
+                        task['is_cloud'],
+                        storage,
+                        error_handler
+                    )
+                    futures[future] = task
+
+                # 收集结果
+                for future in as_completed(futures):
+                    task = futures[future]
+                    try:
+                        result = future.result()
+                        stats['confluence']['pages'] += result['pages']
+                        stats['confluence']['attachments'] += result['attachments']
+                        click.echo(f"  ✓ {task['source']['name']}/{task['space_key']}: {result['pages']} pages, {result['attachments']} attachments")
+                    except Exception as e:
+                        click.echo(f"  ✗ {task['source']['name']}/{task['space_key']}: {str(e)}", err=True)
 
         # 同步 Jira
         if sources_to_sync['jira']:
             click.echo("\nSyncing Jira...")
+
+            # 准备所有任务
+            tasks = []
             for src in sources_to_sync['jira']:
-                click.echo(f"\nSource: {src['name']}")
                 is_cloud = src.get('type', 'cloud').lower() == 'cloud'
-                crawler = JiraCrawler(
-                    src['url'],
-                    src['api_token'],
-                    error_handler,
-                    username=src.get('username'),
-                    is_cloud=is_cloud
-                )
                 for project in src['projects']:
-                    click.echo(f"  Processing project: {project['key']}")
-                    crawler.crawl_project(src['name'], project['key'], storage)
+                    tasks.append({
+                        'type': 'jira',
+                        'source': src,
+                        'project_key': project['key'],
+                        'is_cloud': is_cloud
+                    })
+
+            # 并发执行
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {}
+                for task in tasks:
+                    future = executor.submit(
+                        _sync_jira_project,
+                        task['source'],
+                        task['project_key'],
+                        task['is_cloud'],
+                        storage,
+                        error_handler
+                    )
+                    futures[future] = task
+
+                # 收集结果
+                for future in as_completed(futures):
+                    task = futures[future]
+                    try:
+                        result = future.result()
+                        stats['jira']['issues'] += result['issues']
+                        stats['jira']['attachments'] += result['attachments']
+                        click.echo(f"  ✓ {task['source']['name']}/{task['project_key']}: {result['issues']} issues, {result['attachments']} attachments")
+                    except Exception as e:
+                        click.echo(f"  ✗ {task['source']['name']}/{task['project_key']}: {str(e)}", err=True)
 
         storage.save_state()
         error_handler.generate_error_report()
+
+        # 显示统计信息
+        click.echo("\n" + "="*50)
+        click.echo("Sync Summary:")
+        if sources_to_sync['confluence']:
+            click.echo(f"  Confluence: {stats['confluence']['pages']} pages, {stats['confluence']['attachments']} attachments")
+        if sources_to_sync['jira']:
+            click.echo(f"  Jira: {stats['jira']['issues']} issues, {stats['jira']['attachments']} attachments")
+        click.echo("="*50)
         click.echo("\n[OK] Sync completed!")
 
     except Exception as e:
