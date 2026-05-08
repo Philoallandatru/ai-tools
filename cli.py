@@ -21,6 +21,7 @@ from crawler.confluence import ConfluenceCrawler
 from crawler.jira import JiraCrawler
 from crawler.storage import StorageManager
 from crawler.error_handler import ErrorHandler
+from crawler.doc_splitter import DocumentSplitter
 
 
 @click.group()
@@ -391,6 +392,42 @@ def watch_wiki(time):
         )
     except KeyboardInterrupt:
         click.echo("\n[OK] Watch 模式已停止")
+
+
+@cli.command()
+@click.argument('input_file', type=click.Path(exists=True))
+@click.option('--output-dir', default='sources/', help='输出目录')
+@click.option('--max-chars', default=10000, help='单个文档最大字符数')
+@click.option('--split-level', default=1, help='拆分的标题层级 (1-6)')
+@click.option('--dry-run', is_flag=True, help='只显示拆分结果，不实际写入文件')
+def split_doc(input_file, output_dir, max_chars, split_level, dry_run):
+    """
+    拆分长文档为多个小文档
+
+    将长文档按照 Markdown 标题层级拆分为多个小文档，
+    便于 LLM 处理和概念提取。
+
+    示例:
+        uv run python cli.py split-doc test-sources/nvme.md
+        uv run python cli.py split-doc test-sources/nvme.md --max-chars 8000 --split-level 2
+        uv run python cli.py split-doc test-sources/nvme.md --dry-run
+    """
+    input_path = Path(input_file)
+    output_path = Path(output_dir)
+
+    # 创建拆分器
+    splitter = DocumentSplitter(max_chars=max_chars, split_level=split_level)
+
+    # 拆分文件
+    try:
+        output_files = splitter.split_file(input_path, output_path, dry_run=dry_run)
+
+        if not dry_run and output_files:
+            click.echo(f"\n💡 提示: 运行以下命令编译 wiki:")
+            click.echo(f"   uv run python cli.py compile-wiki")
+    except Exception as e:
+        click.echo(f"❌ 拆分失败: {e}", err=True)
+        raise
 
 
 if __name__ == '__main__':

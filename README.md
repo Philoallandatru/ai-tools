@@ -12,7 +12,14 @@
 - ✅ **附件下载**: 自动下载并保存附件
 - ✅ **错误处理**: 完善的错误处理和重试机制
 
-### 2. 智能知识库编译 (llm-wiki-compiler)
+### 2. 文档拆分工具
+- ✅ **智能拆分**: 按 Markdown 标题层级自动拆分长文档
+- ✅ **大小控制**: 支持设置单个文档的最大字符数
+- ✅ **递归拆分**: 超大章节自动递归拆分或按行切分
+- ✅ **元数据保留**: 自动添加源文件和章节信息
+- ✅ **预览模式**: dry-run 模式预览拆分结果
+
+### 3. 智能知识库编译 (llm-wiki-compiler)
 - ✅ **概念提取**: 使用 LLM 从文档中自动提取技术概念
 - ✅ **知识图谱**: 生成互联的概念网络（341 个概念）
 - ✅ **中文支持**: 完整支持中文内容处理
@@ -51,16 +58,19 @@ cp .env.example .env
 # 1. 爬取 Atlassian 数据
 uv run python cli.py sync
 
-# 2. 编译知识库
+# 2. 拆分长文档（可选）
+uv run python cli.py split-doc test-sources/nvme.md --split-level 2 --max-chars 15000
+
+# 3. 编译知识库
 uv run python cli.py compile-wiki
 
-# 3. 查询知识库
+# 4. 查询知识库
 uv run python cli.py query-wiki "什么是 NVMe 重置机制？"
 
-# 4. 查看 wiki 状态
+# 5. 查看 wiki 状态
 uv run python cli.py wiki-status
 
-# 5. 监控模式（自动重新编译）
+# 6. 监控模式（自动重新编译）
 uv run python cli.py watch-wiki
 ```
 
@@ -73,7 +83,8 @@ ai-tools/
 │   ├── confluence.py     # Confluence 爬虫
 │   ├── jira.py          # Jira 爬虫
 │   ├── storage.py       # 存储管理
-│   └── error_handler.py # 错误处理
+│   ├── error_handler.py # 错误处理
+│   └── doc_splitter.py  # 文档拆分工具
 ├── sources/             # 爬取的源文件（57 个 Markdown）
 ├── wiki/                # 编译后的知识库
 │   ├── concepts/        # 341 个概念页面
@@ -116,6 +127,7 @@ ai-tools/
 - [设计文档](docs/DESIGN.md) - 系统架构和设计决策
 - [快速开始](docs/QUICKSTART.md) - 5 分钟上手指南
 - [使用指南](docs/USAGE.md) - 详细的使用说明
+- [文档拆分](docs/DOC_SPLITTING.md) - 长文档拆分工具使用指南
 - [定时任务](docs/SCHEDULER.md) - 配置自动同步
 - [Wiki 集成](docs/WIKI_INTEGRATION.md) - Wiki 编译器集成指南
 - [Wiki 完成总结](docs/WIKI_SETUP_COMPLETE.md) - Wiki 集成成果

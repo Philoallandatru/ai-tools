@@ -23,6 +23,8 @@ task-scheduler.log
 sources/
 # 保留测试文件
 !test-sources/
+# 排除拆分测试输出
+sources/nvme-split/
 
 # llm-wiki-compiler 生成的文件
 wiki/
