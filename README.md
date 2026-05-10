@@ -76,6 +76,18 @@ uv run python cli.py search "测试" --context 5
 # 只显示统计信息
 uv run python cli.py search "NVMe" --stats-only
 
+# 根据 issue key 查找 Jira
+uv run python cli.py find-jira KAN-10
+
+# 列出所有 Jira issues
+uv run python cli.py list-jira
+
+# 按状态过滤
+uv run python cli.py list-jira --status "进行中"
+
+# 按优先级过滤
+uv run python cli.py list-jira --priority Highest
+
 # 3. 筛选导出文档（可选）
 # 导出今天更新的进行中的 Jira issues
 uv run python cli.py export-filtered --today --status "进行中"

@@ -217,6 +217,80 @@ class ContentSearcher:
 
         return '\n'.join(lines)
 
+    def find_jira_by_key(self, issue_key: str) -> Optional[Path]:
+        """
+        根据 issue key 查找对应的 Jira 文件
+
+        Args:
+            issue_key: Jira issue key (如 KAN-10, PROJ-123)
+
+        Returns:
+            文件路径，如果找不到返回 None
+        """
+        # 标准化 issue key（转大写）
+        issue_key = issue_key.upper().strip()
+
+        # 验证格式：PROJECT-NUMBER
+        if not re.match(r'^[A-Z]+-\d+$', issue_key):
+            raise ValueError(f"Invalid issue key format: {issue_key}. Expected format: PROJECT-123")
+
+        # 构建文件名
+        filename = f"{issue_key}.md"
+
+        # 在 sources 目录及其子目录中查找
+        for md_file in self.source_dir.rglob(filename):
+            return md_file
+
+        return None
+
+    def list_all_jira_issues(self) -> List[Dict[str, Any]]:
+        """
+        列出所有 Jira issue 文件
+
+        Returns:
+            包含 issue 信息的字典列表
+        """
+        issues = []
+        jira_pattern = re.compile(r'^([A-Z]+-\d+)\.md$')
+
+        for md_file in self.source_dir.rglob('*.md'):
+            match = jira_pattern.match(md_file.name)
+            if match:
+                issue_key = match.group(1)
+                try:
+                    # 读取文件获取基本信息
+                    with open(md_file, 'r', encoding='utf-8') as f:
+                        content = f.read(2000)  # 只读前2000字符
+
+                    # 提取状态、优先级、类型
+                    status_match = re.search(r'-\s*\*\*状态\*\*:\s*([^\n]+)', content)
+                    priority_match = re.search(r'-\s*\*\*优先级\*\*:\s*([^\n]+)', content)
+                    type_match = re.search(r'-\s*\*\*类型\*\*:\s*([^\n]+)', content)
+                    title_match = re.search(r'^#\s+\[' + issue_key + r'\]\s+(.+)$', content, re.MULTILINE)
+
+                    issues.append({
+                        'key': issue_key,
+                        'file': md_file,
+                        'title': title_match.group(1).strip() if title_match else 'N/A',
+                        'status': status_match.group(1).strip() if status_match else 'N/A',
+                        'priority': priority_match.group(1).strip() if priority_match else 'N/A',
+                        'type': type_match.group(1).strip() if type_match else 'N/A'
+                    })
+                except Exception:
+                    # 如果解析失败，只添加基本信息
+                    issues.append({
+                        'key': issue_key,
+                        'file': md_file,
+                        'title': 'N/A',
+                        'status': 'N/A',
+                        'priority': 'N/A',
+                        'type': 'N/A'
+                    })
+
+        # 按 issue key 排序
+        issues.sort(key=lambda x: x['key'])
+        return issues
+
     def get_statistics(self, matches: List[SearchMatch]) -> Dict[str, Any]:
         """
         获取搜索统计信息
