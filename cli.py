@@ -27,6 +27,7 @@ from crawler.storage import StorageManager
 from crawler.error_handler import ErrorHandler
 from crawler.doc_splitter import DocumentSplitter
 from crawler.searcher import ContentSearcher
+from crawler.report_generator import ReportGenerator
 
 
 def _sync_confluence_space(source: Dict[str, Any], space_key: str, is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler) -> Dict[str, int]:
@@ -823,6 +824,128 @@ def list_jira(source_dir, status, priority, issue_type):
 
     except Exception as e:
         click.echo(f"列出 issues 失败: {e}", err=True)
+
+
+@cli.command()
+@click.option('--type', 'report_type', default='weekly', type=click.Choice(['daily', 'weekly', 'monthly']), help='报告类型')
+@click.option('--start', 'start_date', help='开始日期 (YYYY-MM-DD)')
+@click.option('--end', 'end_date', help='结束日期 (YYYY-MM-DD)')
+@click.option('--output', default='./reports', help='输出目录')
+@click.option('--source-dir', default='./sources', help='源文件目录')
+@click.option('--format', 'output_format', default='markdown', type=click.Choice(['markdown', 'json']), help='输出格式')
+def generate_report(report_type, start_date, end_date, output, source_dir, output_format):
+    """
+    生成周报/日报/月报
+
+    示例:
+        # 生成本周周报
+        uv run python cli.py generate-report
+
+        # 生成今日日报
+        uv run python cli.py generate-report --type daily
+
+        # 生成指定时间范围的报告
+        uv run python cli.py generate-report --start 2026-05-01 --end 2026-05-07
+
+        # 生成月报
+        uv run python cli.py generate-report --type monthly
+
+        # 输出为 JSON 格式
+        uv run python cli.py generate-report --format json
+    """
+    try:
+        from datetime import datetime
+        import json
+
+        # 解析日期
+        start = None
+        end = None
+
+        if start_date:
+            try:
+                start = datetime.strptime(start_date, '%Y-%m-%d').date()
+            except ValueError:
+                click.echo(f"错误: 无效的开始日期格式: {start_date}，应为 YYYY-MM-DD", err=True)
+                return
+
+        if end_date:
+            try:
+                end = datetime.strptime(end_date, '%Y-%m-%d').date()
+            except ValueError:
+                click.echo(f"错误: 无效的结束日期格式: {end_date}，应为 YYYY-MM-DD", err=True)
+                return
+
+        # 创建报告生成器
+        generator = ReportGenerator(source_dir)
+
+        # 生成报告
+        report_name_map = {'daily': '日报', 'weekly': '周报', 'monthly': '月报'}
+        click.echo(f"正在生成{report_name_map[report_type]}...")
+        report = generator.generate_report(report_type, start, end)
+
+        # 创建输出目录
+        output_dir = Path(output)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # 生成文件名
+        report_name = {
+            'daily': '日报',
+            'weekly': '周报',
+            'monthly': '月报'
+        }[report_type]
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{report_name}_{report['start_date']}_to_{report['end_date']}_{timestamp}"
+
+        if output_format == 'markdown':
+            # 输出 Markdown
+            md_content = generator.format_report_markdown(report)
+            output_file = output_dir / f"{filename}.md"
+
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(md_content)
+
+            click.echo(f"\n✅ 报告已生成: {output_file}")
+            click.echo("\n" + "=" * 60)
+            click.echo("报告预览:")
+            click.echo("=" * 60)
+            # 显示前 30 行
+            lines = md_content.split('\n')
+            for line in lines[:30]:
+                click.echo(line)
+            if len(lines) > 30:
+                click.echo(f"\n... (共 {len(lines)} 行，完整内容请查看文件)")
+
+        else:
+            # 输出 JSON
+            output_file = output_dir / f"{filename}.json"
+
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(report, f, indent=2, ensure_ascii=False)
+
+            click.echo(f"\n✅ 报告已生成: {output_file}")
+
+            # 显示摘要
+            click.echo("\n" + "=" * 60)
+            click.echo("报告摘要:")
+            click.echo("=" * 60)
+            summary = report['summary']
+            click.echo(f"时间范围: {report['start_date']} 至 {report['end_date']}")
+            click.echo(f"总活动数: {summary['total_items']} 项")
+            click.echo(f"  - 新增: {summary['total_new']} 项")
+            click.echo(f"  - 更新: {summary['total_updated']} 项")
+            click.echo(f"\nJira: {summary['jira_summary']['total']} 个 issues")
+            click.echo(f"  - 新增: {summary['jira_summary']['new']} 个")
+            click.echo(f"  - 更新: {summary['jira_summary']['updated']} 个")
+            if summary['confluence_summary']['total'] > 0:
+                click.echo(f"\nConfluence: {summary['confluence_summary']['total']} 个页面")
+                click.echo(f"  - 新增: {summary['confluence_summary']['new']} 个")
+                click.echo(f"  - 更新: {summary['confluence_summary']['updated']} 个")
+
+    except Exception as e:
+        click.echo(f"生成报告失败: {e}", err=True)
+        import traceback
+        traceback.print_exc()
 
 
 @cli.command()

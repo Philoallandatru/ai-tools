@@ -1,0 +1,1910 @@
+{
+  "type": "weekly",
+  "start_date": "2026-05-01",
+  "end_date": "2026-05-07",
+  "generated_at": "2026-05-10T22:50:39.788341",
+  "jira": {
+    "total": 21,
+    "new": 21,
+    "updated": 0,
+    "by_status": {
+      "进行中": [
+        {
+          "key": "KAN-1",
+          "title": "Test Issue",
+          "status": "进行中",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-01",
+          "updated_date": "2026-05-01",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-10",
+          "title": "[Demo M] Function Test: Write Cache Toggle Causes Data Loss",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-11",
+          "title": "[Demo N] Performance Test: Random 4K IOPS Degradation After 72h",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-12",
+          "title": "[Demo O] Robust Test: Trim SPOR Causes Metadata Corruption",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-13",
+          "title": "[Demo P] DQA Test: Thermal Throttling Inconsistency Across Batches",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-14",
+          "title": "[Demo S][SSD2300][Device Self Test] Extended DST 执行期间下发 NVM Reset 导致进度条挂死，设备无法休眠",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-16",
+          "title": "[Demo U][SSD2600][FOB Test] 出厂态空盘执行 4K 随机读时，延迟异常偏高 (450us vs 预期 90us)",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-3",
+          "title": "[SV][SSD1300][QoS] 稳态下 PCMark 10 存储基准测试得分偶发骤降，伴随 500ms 延迟尖峰",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-5",
+          "title": "[SV][SSD1420][FFU] Firmware Download 时非 4K 对齐的 Chunk 导致 CRC 校验失败及更新中止",
+          "status": "进行中",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-6",
+          "title": "[SV][SSD1500][APST] Windows Modern Standby (S0ix) 唤醒时偶发 PCIe 链路重训失败导致设备丢失",
+          "status": "进行中",
+          "priority": "Highest",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-8",
+          "title": "[SV][SSD1350][Format NVM] 执行全盘 Format 期间发生 SPOR（异常掉电），恢复后底层映射表重建失败",
+          "status": "进行中",
+          "priority": "Highest",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-9",
+          "title": "[SV][SSD1700][Identify] Namespace Data Structure 中报告的 LBA Format 列表支持特性与实际固件配置不符",
+          "status": "进行中",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        }
+      ],
+      "完成": [
+        {
+          "key": "KAN-15",
+          "title": "[Demo T][SSD2450][Compare] 开启 PI (端到端数据保护) 时，Compare 命令处理跨 4K 边界的 PRP 列表报 Invalid Field in Command",
+          "status": "完成",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-17",
+          "title": "[Demo V][SSD2700][Error Handle] 高频 PCIe AER 错误注入导致中断处理函数占满 CPU，触发看门狗复位",
+          "status": "完成",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-4",
+          "title": "[SV][SSD1155][IO Stress] 高负载并发 Abort 与 Write Uncorrectable 触发 SQ Doorbell 死锁",
+          "status": "完成",
+          "priority": "Highest",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-7",
+          "title": "[SV][SSD1620][Composite Block Size Workload] 混合块大小（4K~1M）读写并发时，总吞吐量异常断崖式下跌",
+          "status": "完成",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        }
+      ],
+      "待办": [
+        {
+          "key": "KAN-18",
+          "title": "[Demo AA][SSD3100][Security] TCG Opal 激活期间下发非 512 字节对齐的 Security Receive 导致数据截断与状态机死锁",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-19",
+          "title": "[Demo AB][SSD3200][Flush] Flush 命令提前返回 Completion，紧接异常断电导致最新 4KB 数据丢失",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-20",
+          "title": "[Demo AC][SSD3300][QoS] TC x QD Sweep 压测中，Urgent 流量被低优先级高 QD 背景流量阻塞 (Priority Inversion)",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-21",
+          "title": "[Demo AD][SSD3400][Write Zeroes] 携带 Deallocate (DZAT) 属性的 Write Zeroes 命令导致物理块发生阻塞式擦除，性能暴跌",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        }
+      ],
+      "审查中": [
+        {
+          "key": "KAN-2",
+          "title": "[SV][SSD1250][Sanitize] Block Erase 期间下发 NVM Reset 导致下次上电设备进入只读模式",
+          "status": "审查中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "philoallandatruly",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        }
+      ]
+    },
+    "by_priority": {
+      "Medium": [
+        {
+          "key": "KAN-1",
+          "title": "Test Issue",
+          "status": "进行中",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-01",
+          "updated_date": "2026-05-01",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-15",
+          "title": "[Demo T][SSD2450][Compare] 开启 PI (端到端数据保护) 时，Compare 命令处理跨 4K 边界的 PRP 列表报 Invalid Field in Command",
+          "status": "完成",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-17",
+          "title": "[Demo V][SSD2700][Error Handle] 高频 PCIe AER 错误注入导致中断处理函数占满 CPU，触发看门狗复位",
+          "status": "完成",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-18",
+          "title": "[Demo AA][SSD3100][Security] TCG Opal 激活期间下发非 512 字节对齐的 Security Receive 导致数据截断与状态机死锁",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-19",
+          "title": "[Demo AB][SSD3200][Flush] Flush 命令提前返回 Completion，紧接异常断电导致最新 4KB 数据丢失",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-20",
+          "title": "[Demo AC][SSD3300][QoS] TC x QD Sweep 压测中，Urgent 流量被低优先级高 QD 背景流量阻塞 (Priority Inversion)",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-21",
+          "title": "[Demo AD][SSD3400][Write Zeroes] 携带 Deallocate (DZAT) 属性的 Write Zeroes 命令导致物理块发生阻塞式擦除，性能暴跌",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-5",
+          "title": "[SV][SSD1420][FFU] Firmware Download 时非 4K 对齐的 Chunk 导致 CRC 校验失败及更新中止",
+          "status": "进行中",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-9",
+          "title": "[SV][SSD1700][Identify] Namespace Data Structure 中报告的 LBA Format 列表支持特性与实际固件配置不符",
+          "status": "进行中",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        }
+      ],
+      "High": [
+        {
+          "key": "KAN-10",
+          "title": "[Demo M] Function Test: Write Cache Toggle Causes Data Loss",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-11",
+          "title": "[Demo N] Performance Test: Random 4K IOPS Degradation After 72h",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-12",
+          "title": "[Demo O] Robust Test: Trim SPOR Causes Metadata Corruption",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-13",
+          "title": "[Demo P] DQA Test: Thermal Throttling Inconsistency Across Batches",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-14",
+          "title": "[Demo S][SSD2300][Device Self Test] Extended DST 执行期间下发 NVM Reset 导致进度条挂死，设备无法休眠",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-16",
+          "title": "[Demo U][SSD2600][FOB Test] 出厂态空盘执行 4K 随机读时，延迟异常偏高 (450us vs 预期 90us)",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-2",
+          "title": "[SV][SSD1250][Sanitize] Block Erase 期间下发 NVM Reset 导致下次上电设备进入只读模式",
+          "status": "审查中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "philoallandatruly",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-3",
+          "title": "[SV][SSD1300][QoS] 稳态下 PCMark 10 存储基准测试得分偶发骤降，伴随 500ms 延迟尖峰",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-7",
+          "title": "[SV][SSD1620][Composite Block Size Workload] 混合块大小（4K~1M）读写并发时，总吞吐量异常断崖式下跌",
+          "status": "完成",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        }
+      ],
+      "Highest": [
+        {
+          "key": "KAN-4",
+          "title": "[SV][SSD1155][IO Stress] 高负载并发 Abort 与 Write Uncorrectable 触发 SQ Doorbell 死锁",
+          "status": "完成",
+          "priority": "Highest",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-6",
+          "title": "[SV][SSD1500][APST] Windows Modern Standby (S0ix) 唤醒时偶发 PCIe 链路重训失败导致设备丢失",
+          "status": "进行中",
+          "priority": "Highest",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-8",
+          "title": "[SV][SSD1350][Format NVM] 执行全盘 Format 期间发生 SPOR（异常掉电），恢复后底层映射表重建失败",
+          "status": "进行中",
+          "priority": "Highest",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        }
+      ]
+    },
+    "by_type": {
+      "Bug": [
+        {
+          "key": "KAN-1",
+          "title": "Test Issue",
+          "status": "进行中",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-01",
+          "updated_date": "2026-05-01",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-10",
+          "title": "[Demo M] Function Test: Write Cache Toggle Causes Data Loss",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-11",
+          "title": "[Demo N] Performance Test: Random 4K IOPS Degradation After 72h",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-12",
+          "title": "[Demo O] Robust Test: Trim SPOR Causes Metadata Corruption",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-13",
+          "title": "[Demo P] DQA Test: Thermal Throttling Inconsistency Across Batches",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-14",
+          "title": "[Demo S][SSD2300][Device Self Test] Extended DST 执行期间下发 NVM Reset 导致进度条挂死，设备无法休眠",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-15",
+          "title": "[Demo T][SSD2450][Compare] 开启 PI (端到端数据保护) 时，Compare 命令处理跨 4K 边界的 PRP 列表报 Invalid Field in Command",
+          "status": "完成",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-16",
+          "title": "[Demo U][SSD2600][FOB Test] 出厂态空盘执行 4K 随机读时，延迟异常偏高 (450us vs 预期 90us)",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-17",
+          "title": "[Demo V][SSD2700][Error Handle] 高频 PCIe AER 错误注入导致中断处理函数占满 CPU，触发看门狗复位",
+          "status": "完成",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-18",
+          "title": "[Demo AA][SSD3100][Security] TCG Opal 激活期间下发非 512 字节对齐的 Security Receive 导致数据截断与状态机死锁",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-19",
+          "title": "[Demo AB][SSD3200][Flush] Flush 命令提前返回 Completion，紧接异常断电导致最新 4KB 数据丢失",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-2",
+          "title": "[SV][SSD1250][Sanitize] Block Erase 期间下发 NVM Reset 导致下次上电设备进入只读模式",
+          "status": "审查中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "philoallandatruly",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-20",
+          "title": "[Demo AC][SSD3300][QoS] TC x QD Sweep 压测中，Urgent 流量被低优先级高 QD 背景流量阻塞 (Priority Inversion)",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-21",
+          "title": "[Demo AD][SSD3400][Write Zeroes] 携带 Deallocate (DZAT) 属性的 Write Zeroes 命令导致物理块发生阻塞式擦除，性能暴跌",
+          "status": "待办",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-3",
+          "title": "[SV][SSD1300][QoS] 稳态下 PCMark 10 存储基准测试得分偶发骤降，伴随 500ms 延迟尖峰",
+          "status": "进行中",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-4",
+          "title": "[SV][SSD1155][IO Stress] 高负载并发 Abort 与 Write Uncorrectable 触发 SQ Doorbell 死锁",
+          "status": "完成",
+          "priority": "Highest",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-5",
+          "title": "[SV][SSD1420][FFU] Firmware Download 时非 4K 对齐的 Chunk 导致 CRC 校验失败及更新中止",
+          "status": "进行中",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-6",
+          "title": "[SV][SSD1500][APST] Windows Modern Standby (S0ix) 唤醒时偶发 PCIe 链路重训失败导致设备丢失",
+          "status": "进行中",
+          "priority": "Highest",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-7",
+          "title": "[SV][SSD1620][Composite Block Size Workload] 混合块大小（4K~1M）读写并发时，总吞吐量异常断崖式下跌",
+          "status": "完成",
+          "priority": "High",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-8",
+          "title": "[SV][SSD1350][Format NVM] 执行全盘 Format 期间发生 SPOR（异常掉电），恢复后底层映射表重建失败",
+          "status": "进行中",
+          "priority": "Highest",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        },
+        {
+          "key": "KAN-9",
+          "title": "[SV][SSD1700][Identify] Namespace Data Structure 中报告的 LBA Format 列表支持特性与实际固件配置不符",
+          "status": "进行中",
+          "priority": "Medium",
+          "type": "Bug",
+          "assignee": "Unassigned",
+          "created_date": "2026-05-02",
+          "updated_date": "2026-05-02",
+          "is_new": true,
+          "is_updated": true
+        }
+      ]
+    },
+    "new_issues": [
+      {
+        "key": "KAN-1",
+        "title": "Test Issue",
+        "status": "进行中",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-01",
+        "updated_date": "2026-05-01",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-10",
+        "title": "[Demo M] Function Test: Write Cache Toggle Causes Data Loss",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-11",
+        "title": "[Demo N] Performance Test: Random 4K IOPS Degradation After 72h",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-12",
+        "title": "[Demo O] Robust Test: Trim SPOR Causes Metadata Corruption",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-13",
+        "title": "[Demo P] DQA Test: Thermal Throttling Inconsistency Across Batches",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-14",
+        "title": "[Demo S][SSD2300][Device Self Test] Extended DST 执行期间下发 NVM Reset 导致进度条挂死，设备无法休眠",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-15",
+        "title": "[Demo T][SSD2450][Compare] 开启 PI (端到端数据保护) 时，Compare 命令处理跨 4K 边界的 PRP 列表报 Invalid Field in Command",
+        "status": "完成",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-16",
+        "title": "[Demo U][SSD2600][FOB Test] 出厂态空盘执行 4K 随机读时，延迟异常偏高 (450us vs 预期 90us)",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-17",
+        "title": "[Demo V][SSD2700][Error Handle] 高频 PCIe AER 错误注入导致中断处理函数占满 CPU，触发看门狗复位",
+        "status": "完成",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-18",
+        "title": "[Demo AA][SSD3100][Security] TCG Opal 激活期间下发非 512 字节对齐的 Security Receive 导致数据截断与状态机死锁",
+        "status": "待办",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-19",
+        "title": "[Demo AB][SSD3200][Flush] Flush 命令提前返回 Completion，紧接异常断电导致最新 4KB 数据丢失",
+        "status": "待办",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-2",
+        "title": "[SV][SSD1250][Sanitize] Block Erase 期间下发 NVM Reset 导致下次上电设备进入只读模式",
+        "status": "审查中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "philoallandatruly",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-20",
+        "title": "[Demo AC][SSD3300][QoS] TC x QD Sweep 压测中，Urgent 流量被低优先级高 QD 背景流量阻塞 (Priority Inversion)",
+        "status": "待办",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-21",
+        "title": "[Demo AD][SSD3400][Write Zeroes] 携带 Deallocate (DZAT) 属性的 Write Zeroes 命令导致物理块发生阻塞式擦除，性能暴跌",
+        "status": "待办",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-3",
+        "title": "[SV][SSD1300][QoS] 稳态下 PCMark 10 存储基准测试得分偶发骤降，伴随 500ms 延迟尖峰",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-4",
+        "title": "[SV][SSD1155][IO Stress] 高负载并发 Abort 与 Write Uncorrectable 触发 SQ Doorbell 死锁",
+        "status": "完成",
+        "priority": "Highest",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-5",
+        "title": "[SV][SSD1420][FFU] Firmware Download 时非 4K 对齐的 Chunk 导致 CRC 校验失败及更新中止",
+        "status": "进行中",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-6",
+        "title": "[SV][SSD1500][APST] Windows Modern Standby (S0ix) 唤醒时偶发 PCIe 链路重训失败导致设备丢失",
+        "status": "进行中",
+        "priority": "Highest",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-7",
+        "title": "[SV][SSD1620][Composite Block Size Workload] 混合块大小（4K~1M）读写并发时，总吞吐量异常断崖式下跌",
+        "status": "完成",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-8",
+        "title": "[SV][SSD1350][Format NVM] 执行全盘 Format 期间发生 SPOR（异常掉电），恢复后底层映射表重建失败",
+        "status": "进行中",
+        "priority": "Highest",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-9",
+        "title": "[SV][SSD1700][Identify] Namespace Data Structure 中报告的 LBA Format 列表支持特性与实际固件配置不符",
+        "status": "进行中",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      }
+    ],
+    "updated_issues": [],
+    "all_issues": [
+      {
+        "key": "KAN-1",
+        "title": "Test Issue",
+        "status": "进行中",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-01",
+        "updated_date": "2026-05-01",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-10",
+        "title": "[Demo M] Function Test: Write Cache Toggle Causes Data Loss",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-11",
+        "title": "[Demo N] Performance Test: Random 4K IOPS Degradation After 72h",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-12",
+        "title": "[Demo O] Robust Test: Trim SPOR Causes Metadata Corruption",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-13",
+        "title": "[Demo P] DQA Test: Thermal Throttling Inconsistency Across Batches",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-14",
+        "title": "[Demo S][SSD2300][Device Self Test] Extended DST 执行期间下发 NVM Reset 导致进度条挂死，设备无法休眠",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-15",
+        "title": "[Demo T][SSD2450][Compare] 开启 PI (端到端数据保护) 时，Compare 命令处理跨 4K 边界的 PRP 列表报 Invalid Field in Command",
+        "status": "完成",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-16",
+        "title": "[Demo U][SSD2600][FOB Test] 出厂态空盘执行 4K 随机读时，延迟异常偏高 (450us vs 预期 90us)",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-17",
+        "title": "[Demo V][SSD2700][Error Handle] 高频 PCIe AER 错误注入导致中断处理函数占满 CPU，触发看门狗复位",
+        "status": "完成",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-18",
+        "title": "[Demo AA][SSD3100][Security] TCG Opal 激活期间下发非 512 字节对齐的 Security Receive 导致数据截断与状态机死锁",
+        "status": "待办",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-19",
+        "title": "[Demo AB][SSD3200][Flush] Flush 命令提前返回 Completion，紧接异常断电导致最新 4KB 数据丢失",
+        "status": "待办",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-2",
+        "title": "[SV][SSD1250][Sanitize] Block Erase 期间下发 NVM Reset 导致下次上电设备进入只读模式",
+        "status": "审查中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "philoallandatruly",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-20",
+        "title": "[Demo AC][SSD3300][QoS] TC x QD Sweep 压测中，Urgent 流量被低优先级高 QD 背景流量阻塞 (Priority Inversion)",
+        "status": "待办",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-21",
+        "title": "[Demo AD][SSD3400][Write Zeroes] 携带 Deallocate (DZAT) 属性的 Write Zeroes 命令导致物理块发生阻塞式擦除，性能暴跌",
+        "status": "待办",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-3",
+        "title": "[SV][SSD1300][QoS] 稳态下 PCMark 10 存储基准测试得分偶发骤降，伴随 500ms 延迟尖峰",
+        "status": "进行中",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-4",
+        "title": "[SV][SSD1155][IO Stress] 高负载并发 Abort 与 Write Uncorrectable 触发 SQ Doorbell 死锁",
+        "status": "完成",
+        "priority": "Highest",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-5",
+        "title": "[SV][SSD1420][FFU] Firmware Download 时非 4K 对齐的 Chunk 导致 CRC 校验失败及更新中止",
+        "status": "进行中",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-6",
+        "title": "[SV][SSD1500][APST] Windows Modern Standby (S0ix) 唤醒时偶发 PCIe 链路重训失败导致设备丢失",
+        "status": "进行中",
+        "priority": "Highest",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-7",
+        "title": "[SV][SSD1620][Composite Block Size Workload] 混合块大小（4K~1M）读写并发时，总吞吐量异常断崖式下跌",
+        "status": "完成",
+        "priority": "High",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-8",
+        "title": "[SV][SSD1350][Format NVM] 执行全盘 Format 期间发生 SPOR（异常掉电），恢复后底层映射表重建失败",
+        "status": "进行中",
+        "priority": "Highest",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "key": "KAN-9",
+        "title": "[SV][SSD1700][Identify] Namespace Data Structure 中报告的 LBA Format 列表支持特性与实际固件配置不符",
+        "status": "进行中",
+        "priority": "Medium",
+        "type": "Bug",
+        "assignee": "Unassigned",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      }
+    ]
+  },
+  "confluence": {
+    "total": 36,
+    "new": 36,
+    "updated": 0,
+    "new_pages": [
+      {
+        "title": "Automated SSD Performance Testing Report Generation with Python Techniques",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Automated SSD Performance Testing Report Generation with Python Techniques.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Automating .exe Software Testing on Windows with Python and WinAppDriver",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Automating .exe Software Testing on Windows with Python and WinAppDriver.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Data Transformation for \"write cnt\" Columns in Python/Pandas",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Data Transformation for -write cnt- Columns in Python-Pandas.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Deep Analysis of NVMe Reset Timeout Between CC.EN and CSTS.RDY State Transitions",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Deep Analysis of NVMe Reset Timeout Between CC.EN and CSTS.RDY State Transitions.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Exposing SSD Metrics to External Monitoring with Prometheus and Python Exporter",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Exposing SSD Metrics to External Monitoring with Prometheus and Python Exporter.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Firmware",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Firmware.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Monitoring Python Test Script Status for Reliability and Timeliness",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Monitoring Python Test Script Status for Reliability and Timeliness.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Monitoring Solutions: Prometheus, Log-based Monitoring, and APM Tools for Python Scripts",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Monitoring Solutions- Prometheus, Log-based Monitoring, and APM Tools for Python Scripts.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "My first space",
+        "file": "confluence\\sakiko222-confluence\\MFS\\My first space.md",
+        "created_date": "2026-05-01",
+        "updated_date": "2026-05-01",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe Security Send and Receive Commands for Secure Protocol Communication",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe Security Send and Receive Commands for Secure Protocol Communication.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe Security Send and Receive Commands: Key Fields and Data Transfer Details",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe Security Send and Receive Commands- Key Fields and Data Transfer Details.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe Spec",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe Spec.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe SSD Reset Mechanisms: Types, Processes, and Impact on Performance",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe SSD Reset Mechanisms- Types, Processes, and Impact on Performance.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe复位流程中CC.EN设置后等待CSTS.RDY的原因与重要性",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe复位流程中CC.EN设置后等待CSTS.RDY的原因与重要性.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Optimizing SSD Testing Processes with LLM as an Intelligent Testing Assistant",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Optimizing SSD Testing Processes with LLM as an Intelligent Testing Assistant.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "SSD Recovery and Performance Optimization: SPOR, Cache Scheduling, and Memory Allocation Strategies",
+        "file": "confluence\\sakiko222-confluence\\MFS\\SSD Recovery and Performance Optimization- SPOR, Cache Scheduling, and Memory Allocation Strategies.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "SSD Testing Insights: Host Idle Recovery and NVMe Reset Mechanisms",
+        "file": "confluence\\sakiko222-confluence\\MFS\\SSD Testing Insights- Host Idle Recovery and NVMe Reset Mechanisms.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "SSD系统验证与固件架构核心概念原理解析",
+        "file": "confluence\\sakiko222-confluence\\MFS\\SSD系统验证与固件架构核心概念原理解析.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Testing SSD Performance on Windows: File Copy Methods and Tools",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Testing SSD Performance on Windows- File Copy Methods and Tools.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Testing",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Testing.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Understanding \"Pop Erase\" in SSD Firmware Architecture and Its Role in Garbage Collection and Wear Leveling",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Understanding -Pop Erase- in SSD Firmware Architecture and Its Role in Garbage Collection and Wear Leveling.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Understanding MMIO Registers and Their Role in CPU-Device Communication via PCIe",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Understanding MMIO Registers and Their Role in CPU-Device Communication via PCIe.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Understanding NVMe Reset Timing: Importance of Waiting for to After CC.EN Clearance",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Understanding NVMe Reset Timing- Importance of Waiting for to After CC.EN Clearance.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Understanding the \"Erase Count Gap\" in SSD Wear Leveling and Garbage Collection Mechanisms",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Understanding the -Erase Count Gap- in SSD Wear Leveling and Garbage Collection Mechanisms.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Urgent Bug Fixes and Environment Maintenance for Testing Efficiency",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Urgent Bug Fixes and Environment Maintenance for Testing Efficiency.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Windows Platform Automation Testing Tools: WinAppDriver, AutoIt, UI Automation, and TestComplete",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Windows Platform Automation Testing Tools- WinAppDriver, AutoIt, UI Automation, and TestComplete.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "动态磨损均衡与静态磨损均衡在SSD控制器中的区别与应用",
+        "file": "confluence\\sakiko222-confluence\\MFS\\动态磨损均衡与静态磨损均衡在SSD控制器中的区别与应用.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "合理且具说服力的加班理由：SSD系统测试监控工作分析",
+        "file": "confluence\\sakiko222-confluence\\MFS\\合理且具说服力的加班理由：SSD系统测试监控工作分析.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "建立消费级SSD系统测试的监控与告警机制",
+        "file": "confluence\\sakiko222-confluence\\MFS\\建立消费级SSD系统测试的监控与告警机制.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "核心 NVMe 控制器寄存器的功能与使用场景解析",
+        "file": "confluence\\sakiko222-confluence\\MFS\\核心 NVMe 控制器寄存器的功能与使用场景解析.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "深入了解 TCG Opal 协议中的字段赋值与操作流程",
+        "file": "confluence\\sakiko222-confluence\\MFS\\深入了解 TCG Opal 协议中的字段赋值与操作流程.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "深入解析：PCIe ASPM与NVMe APST兼容性及系统验证中的挑战与策略",
+        "file": "confluence\\sakiko222-confluence\\MFS\\深入解析：PCIe ASPM与NVMe APST兼容性及系统验证中的挑战与策略.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "深度分析NVMe重置后读取LBA 0、1、2的防御性恢复机制",
+        "file": "confluence\\sakiko222-confluence\\MFS\\深度分析NVMe重置后读取LBA 0、1、2的防御性恢复机制.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "深度分析消费级SSD性能影响因素及选购指南",
+        "file": "confluence\\sakiko222-confluence\\MFS\\深度分析消费级SSD性能影响因素及选购指南.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "📄 [内部草案] SSD 固件验证自动化：基于 RAG 的智能 Jira 总结与 PR Review 系统设计文档",
+        "file": "confluence\\sakiko222-confluence\\MFS\\📄 [内部草案] SSD 固件验证自动化：基于 RAG 的智能 Jira 总结与 PR Review 系统设计文档.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      }
+    ],
+    "updated_pages": [],
+    "all_pages": [
+      {
+        "title": "Automated SSD Performance Testing Report Generation with Python Techniques",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Automated SSD Performance Testing Report Generation with Python Techniques.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Automating .exe Software Testing on Windows with Python and WinAppDriver",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Automating .exe Software Testing on Windows with Python and WinAppDriver.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Data Transformation for \"write cnt\" Columns in Python/Pandas",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Data Transformation for -write cnt- Columns in Python-Pandas.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Deep Analysis of NVMe Reset Timeout Between CC.EN and CSTS.RDY State Transitions",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Deep Analysis of NVMe Reset Timeout Between CC.EN and CSTS.RDY State Transitions.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Exposing SSD Metrics to External Monitoring with Prometheus and Python Exporter",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Exposing SSD Metrics to External Monitoring with Prometheus and Python Exporter.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Firmware",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Firmware.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Monitoring Python Test Script Status for Reliability and Timeliness",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Monitoring Python Test Script Status for Reliability and Timeliness.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Monitoring Solutions: Prometheus, Log-based Monitoring, and APM Tools for Python Scripts",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Monitoring Solutions- Prometheus, Log-based Monitoring, and APM Tools for Python Scripts.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "My first space",
+        "file": "confluence\\sakiko222-confluence\\MFS\\My first space.md",
+        "created_date": "2026-05-01",
+        "updated_date": "2026-05-01",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe Security Send and Receive Commands for Secure Protocol Communication",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe Security Send and Receive Commands for Secure Protocol Communication.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe Security Send and Receive Commands: Key Fields and Data Transfer Details",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe Security Send and Receive Commands- Key Fields and Data Transfer Details.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe Spec",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe Spec.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe SSD Reset Mechanisms: Types, Processes, and Impact on Performance",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe SSD Reset Mechanisms- Types, Processes, and Impact on Performance.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "NVMe复位流程中CC.EN设置后等待CSTS.RDY的原因与重要性",
+        "file": "confluence\\sakiko222-confluence\\MFS\\NVMe复位流程中CC.EN设置后等待CSTS.RDY的原因与重要性.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Optimizing SSD Testing Processes with LLM as an Intelligent Testing Assistant",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Optimizing SSD Testing Processes with LLM as an Intelligent Testing Assistant.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "SSD Recovery and Performance Optimization: SPOR, Cache Scheduling, and Memory Allocation Strategies",
+        "file": "confluence\\sakiko222-confluence\\MFS\\SSD Recovery and Performance Optimization- SPOR, Cache Scheduling, and Memory Allocation Strategies.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "SSD Testing Insights: Host Idle Recovery and NVMe Reset Mechanisms",
+        "file": "confluence\\sakiko222-confluence\\MFS\\SSD Testing Insights- Host Idle Recovery and NVMe Reset Mechanisms.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "SSD系统验证与固件架构核心概念原理解析",
+        "file": "confluence\\sakiko222-confluence\\MFS\\SSD系统验证与固件架构核心概念原理解析.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Testing SSD Performance on Windows: File Copy Methods and Tools",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Testing SSD Performance on Windows- File Copy Methods and Tools.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Testing",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Testing.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Understanding \"Pop Erase\" in SSD Firmware Architecture and Its Role in Garbage Collection and Wear Leveling",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Understanding -Pop Erase- in SSD Firmware Architecture and Its Role in Garbage Collection and Wear Leveling.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Understanding MMIO Registers and Their Role in CPU-Device Communication via PCIe",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Understanding MMIO Registers and Their Role in CPU-Device Communication via PCIe.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Understanding NVMe Reset Timing: Importance of Waiting for to After CC.EN Clearance",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Understanding NVMe Reset Timing- Importance of Waiting for to After CC.EN Clearance.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Understanding the \"Erase Count Gap\" in SSD Wear Leveling and Garbage Collection Mechanisms",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Understanding the -Erase Count Gap- in SSD Wear Leveling and Garbage Collection Mechanisms.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Urgent Bug Fixes and Environment Maintenance for Testing Efficiency",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Urgent Bug Fixes and Environment Maintenance for Testing Efficiency.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "Windows Platform Automation Testing Tools: WinAppDriver, AutoIt, UI Automation, and TestComplete",
+        "file": "confluence\\sakiko222-confluence\\MFS\\Windows Platform Automation Testing Tools- WinAppDriver, AutoIt, UI Automation, and TestComplete.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "动态磨损均衡与静态磨损均衡在SSD控制器中的区别与应用",
+        "file": "confluence\\sakiko222-confluence\\MFS\\动态磨损均衡与静态磨损均衡在SSD控制器中的区别与应用.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "合理且具说服力的加班理由：SSD系统测试监控工作分析",
+        "file": "confluence\\sakiko222-confluence\\MFS\\合理且具说服力的加班理由：SSD系统测试监控工作分析.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "建立消费级SSD系统测试的监控与告警机制",
+        "file": "confluence\\sakiko222-confluence\\MFS\\建立消费级SSD系统测试的监控与告警机制.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "核心 NVMe 控制器寄存器的功能与使用场景解析",
+        "file": "confluence\\sakiko222-confluence\\MFS\\核心 NVMe 控制器寄存器的功能与使用场景解析.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "深入了解 TCG Opal 协议中的字段赋值与操作流程",
+        "file": "confluence\\sakiko222-confluence\\MFS\\深入了解 TCG Opal 协议中的字段赋值与操作流程.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "深入解析：PCIe ASPM与NVMe APST兼容性及系统验证中的挑战与策略",
+        "file": "confluence\\sakiko222-confluence\\MFS\\深入解析：PCIe ASPM与NVMe APST兼容性及系统验证中的挑战与策略.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "深度分析NVMe重置后读取LBA 0、1、2的防御性恢复机制",
+        "file": "confluence\\sakiko222-confluence\\MFS\\深度分析NVMe重置后读取LBA 0、1、2的防御性恢复机制.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "深度分析消费级SSD性能影响因素及选购指南",
+        "file": "confluence\\sakiko222-confluence\\MFS\\深度分析消费级SSD性能影响因素及选购指南.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      },
+      {
+        "title": "📄 [内部草案] SSD 固件验证自动化：基于 RAG 的智能 Jira 总结与 PR Review 系统设计文档",
+        "file": "confluence\\sakiko222-confluence\\MFS\\📄 [内部草案] SSD 固件验证自动化：基于 RAG 的智能 Jira 总结与 PR Review 系统设计文档.md",
+        "created_date": "2026-05-02",
+        "updated_date": "2026-05-02",
+        "is_new": true,
+        "is_updated": true
+      }
+    ]
+  },
+  "summary": {
+    "total_items": 57,
+    "total_new": 57,
+    "total_updated": 0,
+    "jira_summary": {
+      "total": 21,
+      "new": 21,
+      "updated": 0,
+      "by_status": {
+        "进行中": 12,
+        "完成": 4,
+        "待办": 4,
+        "审查中": 1
+      },
+      "by_priority": {
+        "Medium": 9,
+        "High": 9,
+        "Highest": 3
+      }
+    },
+    "confluence_summary": {
+      "total": 36,
+      "new": 36,
+      "updated": 0
+    }
+  }
+}
