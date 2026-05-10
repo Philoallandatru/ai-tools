@@ -28,6 +28,14 @@ from crawler.error_handler import ErrorHandler
 from crawler.doc_splitter import DocumentSplitter
 from crawler.searcher import ContentSearcher
 from crawler.report_generator import ReportGenerator
+from crawler.jira_analyzer import JiraDeepAnalyzer
+from crawler.llm_client import create_llm_client
+from crawler.analyzers.knowledge_retriever import KnowledgeRetriever
+from crawler.analyzers.root_cause_analyzer import RootCauseAnalyzer
+from crawler.analyzers.similar_jira_finder import SimilarJiraFinder
+from crawler.analyzers.closed_loop_checker import ClosedLoopChecker
+from crawler.analyzers.comment_analyzer import CommentAnalyzer
+from crawler.analyzers.action_recommender import ActionRecommender
 
 
 def _sync_confluence_space(source: Dict[str, Any], space_key: str, is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler) -> Dict[str, int]:
@@ -1114,6 +1122,105 @@ def export_filtered(doc_type, statuses, today, yesterday, days, output, source_d
     click.echo(f"   导出目录: {output_path}")
     click.echo(f"   导出文件数: {exported_count}")
     click.echo(f"   摘要文件: {summary_path}")
+
+
+@cli.command()
+@click.argument('issue_key')
+@click.option('--source-dir', default='./sources', help='源文件目录')
+@click.option('--wiki-dir', default='./wiki', help='Wiki 目录')
+@click.option('--output-dir', default='./reports', help='报告输出目录')
+@click.option('--llm-provider', default='mock', type=click.Choice(['mock', 'llmstudio']), help='LLM 提供商')
+def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
+    """
+    深度分析 Jira Issue
+
+    示例:
+        uv run python cli.py analyze-jira KAN-1
+        uv run python cli.py analyze-jira KAN-2 --llm-provider llmstudio
+    """
+    click.echo(f"🔍 开始分析 Jira Issue: {issue_key}")
+    click.echo(f"   LLM 提供商: {llm_provider}")
+    click.echo("")
+
+    try:
+        # 1. 加载配置
+        config_path = Path('config.yaml')
+        if not config_path.exists():
+            click.echo("❌ 错误: config.yaml 不存在", err=True)
+            sys.exit(1)
+
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+
+        # 2. 创建 LLM 客户端
+        llm_config = config.get('llm', {})
+        if llm_provider == 'llmstudio':
+            llm_client = create_llm_client(
+                'llmstudio',
+                base_url=llm_config.get('base_url', 'http://127.0.0.1:1234'),
+                model=llm_config.get('model', 'qwen3.5-0.8b')
+            )
+            click.echo(f"   使用 LLMStudio: {llm_config.get('base_url')}")
+        else:
+            llm_client = create_llm_client('mock')
+            click.echo("   使用 Mock LLM（测试模式）")
+
+        click.echo("")
+
+        # 3. 创建分析器
+        analyzer = JiraDeepAnalyzer(source_dir=source_dir, llm_client=llm_client)
+
+        # 4. 注册所有分析器
+        click.echo("📋 注册分析器...")
+        analyzer.register_analyzer(KnowledgeRetriever(source_dir=source_dir, wiki_dir=wiki_dir))
+        analyzer.register_analyzer(RootCauseAnalyzer(llm_client))
+        analyzer.register_analyzer(SimilarJiraFinder(source_dir=source_dir, top_k=3))
+        analyzer.register_analyzer(ClosedLoopChecker(llm_client))
+        analyzer.register_analyzer(CommentAnalyzer(llm_client))
+        analyzer.register_analyzer(ActionRecommender(llm_client))
+        click.echo(f"   已注册 {len(analyzer.pipeline)} 个分析器")
+        click.echo("")
+
+        # 5. 执行分析
+        click.echo("🚀 开始执行分析流水线...")
+        report = analyzer.analyze(issue_key)
+
+        # 6. 保存报告
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        report_file = output_path / f"jira_analysis_{issue_key}_{timestamp}.md"
+
+        with open(report_file, 'w', encoding='utf-8') as f:
+            f.write(report)
+
+        click.echo("")
+        click.echo(f"✅ 分析完成!")
+        click.echo(f"   报告文件: {report_file}")
+        click.echo("")
+
+        # 7. 显示报告预览
+        click.echo("=" * 60)
+        click.echo("报告预览:")
+        click.echo("=" * 60)
+        lines = report.split('\n')
+        for line in lines[:40]:
+            click.echo(line)
+        if len(lines) > 40:
+            click.echo(f"\n... (共 {len(lines)} 行，完整内容请查看文件)")
+
+    except FileNotFoundError as e:
+        click.echo(f"❌ 错误: {e}", err=True)
+        sys.exit(1)
+    except RuntimeError as e:
+        click.echo(f"❌ 分析失败: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ 未知错误: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == '__main__':

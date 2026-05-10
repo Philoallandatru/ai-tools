@@ -28,6 +28,15 @@
 - ✅ **智能查询**: 基于 AI 的知识问答系统
 - ✅ **实时监控**: 自动监控源文件变化并重新编译
 
+### 4. Jira 深度分析 (NEW!)
+- ✅ **相关知识检索**: 从 Wiki 和源文件中检索相关技术知识
+- ✅ **根因分析**: 使用 LLM 分析问题的直接原因、深层原因和触发条件
+- ✅ **类似问题查找**: 基于关键词和根因匹配相似的 Jira Issues
+- ✅ **闭环检查**: 检查问题是否完成根因识别、修复和验证
+- ✅ **评论分析**: 分析评论的时间线、关键决策和合理性
+- ✅ **行动建议**: 生成短期、中期、长期的行动建议
+- ✅ **Markdown 报告**: 自动生成结构化的分析报告
+
 ## 快速开始
 
 ### 安装依赖
@@ -88,7 +97,14 @@ uv run python cli.py list-jira --status "进行中"
 # 按优先级过滤
 uv run python cli.py list-jira --priority Highest
 
-# 3. 自动报告生成
+# 3. Jira 深度分析（NEW!）
+# 使用 Mock LLM 分析（测试模式）
+uv run python cli.py analyze-jira KAN-2
+
+# 使用真实 LLM 分析（需要配置 llmstudio）
+uv run python cli.py analyze-jira KAN-2 --llm-provider llmstudio
+
+# 4. 自动报告生成
 # 生成本周周报
 uv run python cli.py generate-report
 
@@ -104,7 +120,7 @@ uv run python cli.py generate-report --start 2026-05-01 --end 2026-05-07
 # 输出为 JSON 格式
 uv run python cli.py generate-report --format json
 
-# 4. 筛选导出文档（可选）
+# 5. 筛选导出文档（可选）
 # 导出今天更新的进行中的 Jira issues
 uv run python cli.py export-filtered --today --status "进行中"
 
@@ -114,19 +130,19 @@ uv run python cli.py export-filtered --days 7 --status "待办" --status "进行
 # 导出昨天更新的所有 Confluence 页面
 uv run python cli.py export-filtered --type confluence --yesterday
 
-# 4. 拆分长文档（可选）
+# 6. 拆分长文档（可选）
 uv run python cli.py split-doc test-sources/nvme.md --split-level 2 --max-chars 15000
 
-# 5. 编译知识库
+# 7. 编译知识库
 uv run python cli.py compile-wiki
 
-# 6. 查询知识库
+# 8. 查询知识库
 uv run python cli.py query-wiki "什么是 NVMe 重置机制？"
 
-# 7. 查看 wiki 状态
+# 9. 查看 wiki 状态
 uv run python cli.py wiki-status
 
-# 8. 监控模式（自动重新编译）
+# 10. 监控模式（自动重新编译）
 uv run python cli.py watch-wiki
 ```
 
