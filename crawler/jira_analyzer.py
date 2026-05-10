@@ -129,9 +129,13 @@ class JiraDeepAnalyzer:
 
         # 提取评论
         comments = []
-        comment_pattern = re.compile(r'###\s+评论\s+\d+.*?\n\n(.+?)(?=\n###|\n##|\Z)', re.DOTALL)
+        # 匹配格式: ### 作者 - 时间\n\n内容
+        comment_pattern = re.compile(r'###\s+(.+?)\s+-\s+(.+?)\n\n(.+?)(?=\n###|\n##|\Z)', re.DOTALL)
         for match in comment_pattern.finditer(content):
-            comments.append(match.group(1).strip())
+            author = match.group(1).strip()
+            timestamp = match.group(2).strip()
+            comment_text = match.group(3).strip()
+            comments.append(f"[{author} @ {timestamp}]\n{comment_text}")
 
         return {
             'key': issue_key,

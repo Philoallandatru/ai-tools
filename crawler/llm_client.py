@@ -111,7 +111,7 @@ class LLMStudioClient(BaseLLMClient):
                     "max_tokens": max_tokens,
                     "temperature": 0.7
                 },
-                timeout=60
+                timeout=300  # 增加到 5 分钟
             )
             response.raise_for_status()
 
