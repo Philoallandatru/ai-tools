@@ -11,6 +11,8 @@
 - ✅ **增量同步**: 支持增量更新，只爬取变更的内容
 - ✅ **附件下载**: 自动下载并保存附件
 - ✅ **错误处理**: 完善的错误处理和重试机制
+- ✅ **筛选导出**: 根据时间和状态筛选导出 Jira/Confluence 文档
+- ✅ **全文搜索**: 快速搜索所有文档内容，支持正则表达式和高亮显示
 
 ### 2. 文档拆分工具
 - ✅ **智能拆分**: 按 Markdown 标题层级自动拆分长文档
@@ -58,19 +60,45 @@ cp .env.example .env
 # 1. 爬取 Atlassian 数据
 uv run python cli.py sync
 
-# 2. 拆分长文档（可选）
+# 2. 全文搜索（快速查找内容）
+# 基本搜索
+uv run python cli.py search "NVMe Reset"
+
+# 只搜索 Jira issues
+uv run python cli.py search "性能优化" --type jira
+
+# 使用正则表达式搜索
+uv run python cli.py search "CC\.EN|CSTS\.RDY" --regex
+
+# 显示更多上下文（前后 5 行）
+uv run python cli.py search "测试" --context 5
+
+# 只显示统计信息
+uv run python cli.py search "NVMe" --stats-only
+
+# 3. 筛选导出文档（可选）
+# 导出今天更新的进行中的 Jira issues
+uv run python cli.py export-filtered --today --status "进行中"
+
+# 导出最近 7 天更新的待办和进行中的 issues
+uv run python cli.py export-filtered --days 7 --status "待办" --status "进行中"
+
+# 导出昨天更新的所有 Confluence 页面
+uv run python cli.py export-filtered --type confluence --yesterday
+
+# 4. 拆分长文档（可选）
 uv run python cli.py split-doc test-sources/nvme.md --split-level 2 --max-chars 15000
 
-# 3. 编译知识库
+# 5. 编译知识库
 uv run python cli.py compile-wiki
 
-# 4. 查询知识库
+# 6. 查询知识库
 uv run python cli.py query-wiki "什么是 NVMe 重置机制？"
 
-# 5. 查看 wiki 状态
+# 7. 查看 wiki 状态
 uv run python cli.py wiki-status
 
-# 6. 监控模式（自动重新编译）
+# 8. 监控模式（自动重新编译）
 uv run python cli.py watch-wiki
 ```
 
@@ -84,7 +112,8 @@ ai-tools/
 │   ├── jira.py          # Jira 爬虫
 │   ├── storage.py       # 存储管理
 │   ├── error_handler.py # 错误处理
-│   └── doc_splitter.py  # 文档拆分工具
+│   ├── doc_splitter.py  # 文档拆分工具
+│   └── searcher.py      # 全文搜索引擎
 ├── sources/             # 爬取的源文件（57 个 Markdown）
 ├── wiki/                # 编译后的知识库
 │   ├── concepts/        # 341 个概念页面
@@ -127,6 +156,7 @@ ai-tools/
 - [设计文档](docs/DESIGN.md) - 系统架构和设计决策
 - [快速开始](docs/QUICKSTART.md) - 5 分钟上手指南
 - [使用指南](docs/USAGE.md) - 详细的使用说明
+- [全文搜索](docs/SEARCH.md) - 搜索功能完整指南
 - [文档拆分](docs/DOC_SPLITTING.md) - 长文档拆分工具使用指南
 - [定时任务](docs/SCHEDULER.md) - 配置自动同步
 - [Wiki 集成](docs/WIKI_INTEGRATION.md) - Wiki 编译器集成指南
