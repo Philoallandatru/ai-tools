@@ -7,21 +7,24 @@ from typing import Dict, Any, List
 from pathlib import Path
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
+from crawler.llm_client import BaseLLMClient
 
 
 class SimilarJiraFinder(BaseAnalyzer):
-    """类似 Jira 查找器 - 基于关键词、问题类型和根因匹配"""
+    """类似 Jira 查找器 - 基于关键词、问题类型和根因匹配，并使用 LLM 分析相关性"""
 
-    def __init__(self, source_dir: str = './sources', top_k: int = 3):
+    def __init__(self, source_dir: str = './sources', top_k: int = 3, llm_client: BaseLLMClient = None):
         """
         初始化类似 Jira 查找器
 
         Args:
             source_dir: 源文件目录
             top_k: 返回最相似的 K 个 Issues
+            llm_client: LLM 客户端（用于深度关联分析）
         """
         self.source_dir = Path(source_dir)
         self.top_k = top_k
+        self.llm_client = llm_client
 
     def get_name(self) -> str:
         return "similar_jira"
@@ -55,12 +58,20 @@ class SimilarJiraFinder(BaseAnalyzer):
                     'title': issue['title'],
                     'status': issue['status'],
                     'priority': issue['priority'],
-                    'similarity_score': score
+                    'similarity_score': score,
+                    'description': issue['description'][:500]  # 保存描述用于后续分析
                 })
 
         # 3. 排序并返回 Top K
         similarities.sort(key=lambda x: x['similarity_score'], reverse=True)
         top_similar = similarities[:self.top_k]
+
+        # 4. 使用 LLM 分析相关性（如果有 LLM 客户端）
+        if self.llm_client and top_similar:
+            for similar in top_similar:
+                analysis = self._analyze_relevance(jira_data, similar, context)
+                similar['relevance_analysis'] = analysis
+                context.increment_llm_calls()
 
         return {
             'similar_issues': top_similar,
@@ -153,3 +164,71 @@ class SimilarJiraFinder(BaseAnalyzer):
                 score += 0.2 * (matched_cause / len(cause_keywords))
 
         return min(score, 1.0)  # 确保不超过 1.0
+
+    def _analyze_relevance(
+        self,
+        current: Dict[str, Any],
+        similar: Dict[str, Any],
+        context: AnalysisContext
+    ) -> str:
+        """
+        使用 LLM 分析两个 Issue 的相关性
+
+        Args:
+            current: 当前 Issue
+            similar: 相似 Issue
+            context: 分析上下文
+
+        Returns:
+            相关性分析文本
+        """
+        # 获取根因分析结果
+        root_cause = context.get_result('root_cause')
+        root_cause_text = ""
+        if root_cause and root_cause.get('direct_cause'):
+            root_cause_text = f"\n当前问题根因: {root_cause['direct_cause']}"
+
+        prompt = f"""请分析以下两个 Jira Issue 的相关性：
+
+当前问题:
+- [{current['key']}] {current['title']}
+- 描述: {current['description'][:300]}{root_cause_text}
+
+相似问题:
+- [{similar['key']}] {similar['title']}
+- 描述: {similar['description'][:300]}
+
+请从以下角度分析它们的相关性（用 2-3 句话）：
+1. 共同点：它们有什么相似之处？（技术领域、问题类型、触发条件等）
+2. 参考价值：这个相似问题能为当前问题提供什么参考？（解决思路、注意事项等）
+
+请直接回答，不要使用 Markdown 格式，不要输出思考过程。
+"""
+
+        try:
+            response = self.llm_client.generate(prompt, max_tokens=300)
+            # 清理响应（移除 <think> 标签等）
+            response = self._clean_llm_output(response)
+            return response.strip()
+        except Exception as e:
+            return f"相关性分析失败: {str(e)}"
+
+    def _clean_llm_output(self, text: str) -> str:
+        """
+        清理 LLM 输出，移除思考过程标签
+
+        Args:
+            text: 原始输出
+
+        Returns:
+            清理后的文本
+        """
+        import re
+        # 移除 <think>...</think> 标签及其内容
+        text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+        # 移除 </think> 单独标签
+        text = re.sub(r'</think>', '', text)
+        # 移除多余的空行
+        text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)
+        return text.strip()
+

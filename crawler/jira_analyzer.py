@@ -301,6 +301,13 @@ class JiraDeepAnalyzer:
             lines.append(f"### [{issue['key']}] {issue['title']}")
             lines.append(f"- **相似度**: {score:.2%}")
             lines.append(f"- **状态**: {issue['status']} | **优先级**: {issue['priority']}")
+
+            # 添加相关性分析
+            if issue.get('relevance_analysis'):
+                lines.append("")
+                lines.append("**相关性分析**:")
+                lines.append(issue['relevance_analysis'])
+
             lines.append("")
 
         return '\n'.join(lines)

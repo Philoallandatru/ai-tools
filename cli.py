@@ -1174,7 +1174,7 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
         click.echo("📋 注册分析器...")
         analyzer.register_analyzer(KnowledgeRetriever(source_dir=source_dir, wiki_dir=wiki_dir))
         analyzer.register_analyzer(RootCauseAnalyzer(llm_client))
-        analyzer.register_analyzer(SimilarJiraFinder(source_dir=source_dir, top_k=3))
+        analyzer.register_analyzer(SimilarJiraFinder(source_dir=source_dir, top_k=3, llm_client=llm_client))
         analyzer.register_analyzer(ClosedLoopChecker(llm_client))
         analyzer.register_analyzer(CommentAnalyzer(llm_client))
         analyzer.register_analyzer(ActionRecommender(llm_client))
