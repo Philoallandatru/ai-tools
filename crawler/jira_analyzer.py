@@ -363,6 +363,15 @@ class JiraDeepAnalyzer:
             lines.append("")
             for ca in comment_analyses:
                 lines.append(f"**评论 #{ca['index']}**:")
+                # 显示评论原文
+                if ca.get('comment_preview'):
+                    lines.append("")
+                    lines.append(f"```")
+                    lines.append(ca['comment_preview'])
+                    lines.append(f"```")
+                    lines.append("")
+                # 显示 LLM 分析
+                lines.append("**分析**:")
                 lines.append(ca['analysis'])
                 lines.append("")
 
