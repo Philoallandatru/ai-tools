@@ -6,6 +6,7 @@ from typing import Dict, Any, List
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
+from crawler.llm_utils import clean_llm_output
 
 
 class CommentAnalyzer(BaseAnalyzer):
@@ -82,6 +83,9 @@ class CommentAnalyzer(BaseAnalyzer):
         """
         prompt = self._build_comment_prompt(index, comment, jira_data)
         response = self.llm_client.generate(prompt, max_tokens=600)
+
+        # 清理输出
+        response = clean_llm_output(response)
 
         return {
             'index': index,

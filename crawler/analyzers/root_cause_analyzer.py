@@ -6,6 +6,7 @@ from typing import Dict, Any
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
+from crawler.llm_utils import clean_llm_output, extract_structured_response
 
 
 class RootCauseAnalyzer(BaseAnalyzer):
@@ -40,6 +41,9 @@ class RootCauseAnalyzer(BaseAnalyzer):
         # 调用 LLM
         context.increment_llm_calls()
         response = self.llm_client.generate(prompt, max_tokens=1000)
+
+        # 清理输出
+        response = clean_llm_output(response)
 
         # 解析响应
         result = self._parse_response(response)
@@ -82,7 +86,16 @@ Issue: [{jira_data['key']}] {jira_data['title']}
 2. 深层原因：导致这个问题的底层技术原因是什么？
 3. 触发条件：在什么条件下会触发这个问题？
 
-请用简洁的语言回答，每个层面 1-2 句话。
+要求：
+- 每个层面用 1-2 句话简洁回答
+- 直接输出分析结果，不要输出思考过程
+- 不要使用 <think> 标签
+- 不要输出 JSON 格式
+- 按照以下格式回答：
+
+直接原因: [你的分析]
+深层原因: [你的分析]
+触发条件: [你的分析]
 """
         return prompt
 

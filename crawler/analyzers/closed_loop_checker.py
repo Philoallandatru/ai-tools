@@ -6,6 +6,7 @@ from typing import Dict, Any
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
+from crawler.llm_utils import clean_llm_output
 
 
 class ClosedLoopChecker(BaseAnalyzer):
@@ -42,6 +43,9 @@ class ClosedLoopChecker(BaseAnalyzer):
         prompt = self._build_prompt(jira_data, context)
         context.increment_llm_calls()
         response = self.llm_client.generate(prompt, max_tokens=800)
+
+        # 清理输出
+        response = clean_llm_output(response)
 
         # 3. 解析响应
         result = self._parse_response(response)

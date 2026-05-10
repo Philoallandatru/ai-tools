@@ -8,6 +8,7 @@ from pathlib import Path
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
+from crawler.llm_utils import clean_llm_output
 
 
 class SimilarJiraFinder(BaseAnalyzer):
@@ -208,27 +209,7 @@ class SimilarJiraFinder(BaseAnalyzer):
         try:
             response = self.llm_client.generate(prompt, max_tokens=300)
             # 清理响应（移除 <think> 标签等）
-            response = self._clean_llm_output(response)
+            response = clean_llm_output(response)
             return response.strip()
         except Exception as e:
             return f"相关性分析失败: {str(e)}"
-
-    def _clean_llm_output(self, text: str) -> str:
-        """
-        清理 LLM 输出，移除思考过程标签
-
-        Args:
-            text: 原始输出
-
-        Returns:
-            清理后的文本
-        """
-        import re
-        # 移除 <think>...</think> 标签及其内容
-        text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
-        # 移除 </think> 单独标签
-        text = re.sub(r'</think>', '', text)
-        # 移除多余的空行
-        text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)
-        return text.strip()
-
