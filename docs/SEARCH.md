@@ -4,7 +4,15 @@
 
 全文搜索功能允许你快速在 `sources/` 目录中的所有 Markdown 文件中查找内容。支持普通文本搜索、正则表达式搜索、文件类型过滤和结果高亮显示。
 
-## 基本用法
+## 功能列表
+
+1. **全文搜索** (`search`) - 在所有文档中搜索关键词
+2. **查找 Jira** (`find-jira`) - 根据 issue key 快速定位 Jira 文件
+3. **列出 Jira** (`list-jira`) - 列出所有 Jira issues 并支持过滤
+
+## 1. 全文搜索 (search)
+
+### 基本用法
 
 ### 简单搜索
 
@@ -14,7 +22,126 @@ uv run python cli.py search "NVMe Reset"
 
 这将在所有文件中搜索 "NVMe Reset" 并显示匹配结果及上下文。
 
-### 搜索选项
+### 2. 查找 Jira (find-jira)
+
+根据 issue key 快速定位并预览 Jira 文件。
+
+### 基本用法
+
+```bash
+uv run python cli.py find-jira KAN-10
+```
+
+### 功能特点
+
+- 自动标准化 issue key（支持大小写）
+- 显示文件路径
+- 预览文件前 20 行内容
+- 显示文件总行数
+
+### 使用示例
+
+```bash
+# 查找指定 issue
+uv run python cli.py find-jira KAN-10
+
+# 支持小写
+uv run python cli.py find-jira kan-21
+
+# 指定源目录
+uv run python cli.py find-jira KAN-10 --source-dir ./sources
+```
+
+### 输出示例
+
+```
+✓ 找到文件: sources\KAN-10.md
+
+文件预览:
+============================================================
+  1 | # [KAN-10] [Demo M] Function Test: Write Cache Toggle...
+  2 | 
+  3 | > 来源: https://sakiko222.atlassian.net/browse/KAN-10
+  4 | > Project: SN5100 (KAN)
+  ...
+ 20 | 
+...
+
+(显示前 20 行，共 627 行)
+```
+
+## 3. 列出 Jira (list-jira)
+
+列出所有 Jira issues，支持按状态、优先级、类型过滤。
+
+### 基本用法
+
+```bash
+uv run python cli.py list-jira
+```
+
+### 命令选项
+
+| 选项 | 说明 | 示例 |
+|------|------|------|
+| `--status` | 按状态过滤 | `--status "进行中"` |
+| `--priority` | 按优先级过滤 | `--priority High` |
+| `--type` | 按类型过滤 | `--type Bug` |
+| `--source-dir` | 源文件目录 | `--source-dir ./sources` |
+
+### 使用示例
+
+```bash
+# 列出所有 issues
+uv run python cli.py list-jira
+
+# 只显示进行中的 issues
+uv run python cli.py list-jira --status "进行中"
+
+# 只显示高优先级 issues
+uv run python cli.py list-jira --priority Highest
+
+# 只显示 Bug 类型
+uv run python cli.py list-jira --type Bug
+
+# 组合过滤
+uv run python cli.py list-jira --status "进行中" --priority High
+```
+
+### 输出示例
+
+```
+找到 21 个 Jira issues:
+====================================================================================================
+Key          类型       状态         优先级        标题                                                
+====================================================================================================
+KAN-1        Bug      进行中        Medium     Test Issue                                        
+KAN-10       Bug      进行中        High       [Demo M] Function Test: Write Cache Toggle...
+...
+====================================================================================================
+总计: 21 个 issues
+
+统计信息:
+  状态: 进行中(12), 完成(4), 待办(4), 审查中(1)
+  优先级: Medium(9), High(9), Highest(3)
+  类型: Bug(21)
+```
+
+### 显示信息
+
+列表显示以下信息：
+- **Key**: Issue 编号
+- **类型**: Bug/Task/Story 等
+- **状态**: 进行中/完成/待办等
+- **优先级**: Highest/High/Medium/Low
+- **标题**: Issue 标题（超过 50 字符会截断）
+
+统计信息包括：
+- 各状态的 issue 数量
+- 各优先级的 issue 数量
+- 各类型的 issue 数量
+
+## 搜索选项
 
 ```bash
 uv run python cli.py search [关键词] [选项]

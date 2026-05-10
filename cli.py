@@ -713,6 +713,119 @@ def search(query, file_type, context_lines, regex, case_sensitive, max_results, 
 
 
 @cli.command()
+@click.argument('issue_key')
+@click.option('--source-dir', default='./sources', help='源文件目录')
+def find_jira(issue_key, source_dir):
+    """
+    根据 issue key 查找 Jira 文件
+
+    示例:
+        uv run python cli.py find-jira KAN-10
+        uv run python cli.py find-jira kan-21
+    """
+    try:
+        searcher = ContentSearcher(source_dir)
+        file_path = searcher.find_jira_by_key(issue_key)
+
+        if file_path:
+            click.echo(f"✓ 找到文件: {file_path}")
+            click.echo()
+
+            # 读取并显示文件的前几行
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()[:20]  # 显示前20行
+
+                click.echo("文件预览:")
+                click.echo("=" * 60)
+                for i, line in enumerate(lines, 1):
+                    click.echo(f"{i:3d} | {line.rstrip()}")
+
+                if len(lines) >= 20:
+                    click.echo("...")
+                    click.echo(f"\n(显示前 20 行，共 {sum(1 for _ in open(file_path, 'r', encoding='utf-8'))} 行)")
+
+            except Exception as e:
+                click.echo(f"无法读取文件内容: {e}", err=True)
+        else:
+            click.echo(f"✗ 未找到 issue: {issue_key}", err=True)
+            click.echo(f"\n提示: 确保文件名格式为 {issue_key.upper()}.md")
+
+    except ValueError as e:
+        click.echo(f"错误: {e}", err=True)
+    except Exception as e:
+        click.echo(f"查找失败: {e}", err=True)
+
+
+@cli.command()
+@click.option('--source-dir', default='./sources', help='源文件目录')
+@click.option('--status', help='按状态过滤')
+@click.option('--priority', help='按优先级过滤')
+@click.option('--type', 'issue_type', help='按类型过滤')
+def list_jira(source_dir, status, priority, issue_type):
+    """
+    列出所有 Jira issues
+
+    示例:
+        uv run python cli.py list-jira
+        uv run python cli.py list-jira --status "进行中"
+        uv run python cli.py list-jira --priority High
+        uv run python cli.py list-jira --type Bug
+    """
+    try:
+        searcher = ContentSearcher(source_dir)
+        issues = searcher.list_all_jira_issues()
+
+        if not issues:
+            click.echo("未找到任何 Jira issue 文件")
+            return
+
+        # 应用过滤
+        if status:
+            issues = [i for i in issues if i['status'] == status]
+        if priority:
+            issues = [i for i in issues if i['priority'] == priority]
+        if issue_type:
+            issues = [i for i in issues if i['type'] == issue_type]
+
+        if not issues:
+            click.echo("没有匹配的 issues")
+            return
+
+        # 显示结果
+        click.echo(f"\n找到 {len(issues)} 个 Jira issues:")
+        click.echo("=" * 100)
+        click.echo(f"{'Key':<12} {'类型':<8} {'状态':<10} {'优先级':<10} {'标题':<50}")
+        click.echo("=" * 100)
+
+        for issue in issues:
+            title = issue['title'][:47] + '...' if len(issue['title']) > 50 else issue['title']
+            click.echo(f"{issue['key']:<12} {issue['type']:<8} {issue['status']:<10} {issue['priority']:<10} {title:<50}")
+
+        click.echo("=" * 100)
+        click.echo(f"总计: {len(issues)} 个 issues")
+
+        # 统计信息
+        if len(issues) > 0:
+            status_counts = {}
+            priority_counts = {}
+            type_counts = {}
+
+            for issue in issues:
+                status_counts[issue['status']] = status_counts.get(issue['status'], 0) + 1
+                priority_counts[issue['priority']] = priority_counts.get(issue['priority'], 0) + 1
+                type_counts[issue['type']] = type_counts.get(issue['type'], 0) + 1
+
+            click.echo("\n统计信息:")
+            click.echo(f"  状态: {', '.join(f'{k}({v})' for k, v in status_counts.items())}")
+            click.echo(f"  优先级: {', '.join(f'{k}({v})' for k, v in priority_counts.items())}")
+            click.echo(f"  类型: {', '.join(f'{k}({v})' for k, v in type_counts.items())}")
+
+    except Exception as e:
+        click.echo(f"列出 issues 失败: {e}", err=True)
+
+
+@cli.command()
 @click.option('--type', 'doc_type', default='jira', type=click.Choice(['confluence', 'jira']), help='文档类型')
 @click.option('--status', 'statuses', multiple=True, help='状态过滤 (可多次指定，如: --status "进行中" --status "待办")')
 @click.option('--today', is_flag=True, help='只导出今天更新的文档')
