@@ -8,9 +8,12 @@ import json
 import subprocess
 import click
 import yaml
+import re
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta, date
+import shutil
 
 # 强制使用 UTF-8 编码（Windows 兼容性）
 if sys.platform == 'win32':
@@ -23,6 +26,7 @@ from crawler.jira import JiraCrawler
 from crawler.storage import StorageManager
 from crawler.error_handler import ErrorHandler
 from crawler.doc_splitter import DocumentSplitter
+from crawler.searcher import ContentSearcher
 
 
 def _sync_confluence_space(source: Dict[str, Any], space_key: str, is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler) -> Dict[str, int]:
@@ -548,6 +552,332 @@ def split_doc(input_file, output_dir, max_chars, split_level, dry_run):
     except Exception as e:
         click.echo(f"❌ 拆分失败: {e}", err=True)
         raise
+
+
+def _parse_jira_metadata(file_path: Path) -> Optional[Dict[str, Any]]:
+    """
+    解析 Jira markdown 文件的元数据
+
+    Args:
+        file_path: Jira markdown 文件路径
+
+    Returns:
+        元数据字典，包含 update_date, status, priority, type
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        metadata = {}
+
+        # 提取更新时间: > 更新时间: 2026-05-01T22:08:11.433+0800
+        update_match = re.search(r'>\s*更新时间:\s*(\d{4}-\d{2}-\d{2})', content)
+        if update_match:
+            date_str = update_match.group(1)
+            metadata['update_date'] = datetime.strptime(date_str, '%Y-%m-%d').date()
+
+        # 提取状态: - **状态**: 进行中
+        status_match = re.search(r'-\s*\*\*状态\*\*:\s*([^\n]+)', content)
+        if status_match:
+            metadata['status'] = status_match.group(1).strip()
+
+        # 提取优先级: - **优先级**: Medium
+        priority_match = re.search(r'-\s*\*\*优先级\*\*:\s*([^\n]+)', content)
+        if priority_match:
+            metadata['priority'] = priority_match.group(1).strip()
+
+        # 提取类型: - **类型**: Bug
+        type_match = re.search(r'-\s*\*\*类型\*\*:\s*([^\n]+)', content)
+        if type_match:
+            metadata['type'] = type_match.group(1).strip()
+
+        return metadata
+    except Exception as e:
+        click.echo(f"Warning: Failed to parse {file_path}: {e}", err=True)
+        return None
+
+
+def _parse_confluence_metadata(file_path: Path) -> Optional[Dict[str, Any]]:
+    """
+    解析 Confluence markdown 文件的元数据
+
+    Args:
+        file_path: Confluence markdown 文件路径
+
+    Returns:
+        元数据字典，包含 update_date
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        metadata = {}
+
+        # 提取更新时间: > 更新时间: 2026-05-01T22:08:11.433+0800
+        update_match = re.search(r'>\s*更新时间:\s*(\d{4}-\d{2}-\d{2})', content)
+        if update_match:
+            date_str = update_match.group(1)
+            metadata['update_date'] = datetime.strptime(date_str, '%Y-%m-%d').date()
+
+        return metadata
+    except Exception as e:
+        click.echo(f"Warning: Failed to parse {file_path}: {e}", err=True)
+        return None
+
+
+@cli.command()
+@click.argument('query')
+@click.option('--type', 'file_type', default='all', type=click.Choice(['all', 'jira', 'confluence']), help='文件类型过滤')
+@click.option('--context', 'context_lines', default=2, type=int, help='显示上下文行数')
+@click.option('--regex', is_flag=True, help='使用正则表达式搜索')
+@click.option('--case-sensitive', is_flag=True, help='区分大小写')
+@click.option('--max-results', default=100, type=int, help='最大结果数')
+@click.option('--source-dir', default='./sources', help='源文件目录')
+@click.option('--no-highlight', is_flag=True, help='不高亮显示匹配内容')
+@click.option('--stats-only', is_flag=True, help='只显示统计信息')
+def search(query, file_type, context_lines, regex, case_sensitive, max_results, source_dir, no_highlight, stats_only):
+    """
+    在 sources 目录中搜索内容
+
+    示例:
+        uv run python cli.py search "NVMe Reset"
+        uv run python cli.py search "性能优化" --type jira
+        uv run python cli.py search "NVMe.*Reset" --regex
+        uv run python cli.py search "CSTS.RDY" --context 5
+        uv run python cli.py search "nvme" --case-sensitive
+        uv run python cli.py search "测试" --stats-only
+    """
+    try:
+        # 创建搜索器
+        searcher = ContentSearcher(source_dir)
+
+        # 执行搜索
+        click.echo(f"搜索关键词: {query}")
+        click.echo(f"文件类型: {file_type}")
+        if regex:
+            click.echo("使用正则表达式")
+        click.echo()
+
+        matches = searcher.search(
+            query=query,
+            file_type=file_type,
+            context_lines=context_lines,
+            use_regex=regex,
+            case_sensitive=case_sensitive,
+            max_results=max_results
+        )
+
+        if not matches:
+            click.echo("未找到匹配结果")
+            return
+
+        # 获取统计信息
+        stats = searcher.get_statistics(matches)
+
+        # 显示统计信息
+        click.echo("=" * 60)
+        click.echo(f"找到 {stats['total_matches']} 个匹配，分布在 {stats['total_files']} 个文件中")
+        click.echo("=" * 60)
+
+        if stats_only:
+            # 只显示统计信息
+            click.echo("\n文件匹配统计:")
+            for file_info in stats['files'][:20]:  # 最多显示前20个文件
+                click.echo(f"  {file_info['count']:3d} 个匹配 - {file_info['path']}")
+            if len(stats['files']) > 20:
+                click.echo(f"  ... 还有 {len(stats['files']) - 20} 个文件")
+        else:
+            # 显示详细匹配结果
+            for match in matches:
+                formatted = searcher.format_match(
+                    match,
+                    highlight=not no_highlight,
+                    show_context=context_lines > 0
+                )
+                click.echo(formatted)
+
+            # 底部再次显示统计
+            click.echo("\n" + "=" * 60)
+            click.echo(f"共 {stats['total_matches']} 个匹配")
+            if len(matches) >= max_results:
+                click.echo(f"(已达到最大结果数限制: {max_results})")
+            click.echo("=" * 60)
+
+    except FileNotFoundError as e:
+        click.echo(f"错误: {e}", err=True)
+    except ValueError as e:
+        click.echo(f"错误: {e}", err=True)
+    except Exception as e:
+        click.echo(f"搜索失败: {e}", err=True)
+        raise
+
+
+@cli.command()
+@click.option('--type', 'doc_type', default='jira', type=click.Choice(['confluence', 'jira']), help='文档类型')
+@click.option('--status', 'statuses', multiple=True, help='状态过滤 (可多次指定，如: --status "进行中" --status "待办")')
+@click.option('--today', is_flag=True, help='只导出今天更新的文档')
+@click.option('--yesterday', is_flag=True, help='只导出昨天更新的文档')
+@click.option('--days', type=int, help='导出最近 N 天更新的文档')
+@click.option('--output', default='./filtered_export', help='导出目录')
+@click.option('--source-dir', default='./sources', help='源文件目录')
+def export_filtered(doc_type, statuses, today, yesterday, days, output, source_dir):
+    """
+    根据时间和状态筛选导出文档
+
+    示例:
+        # 导出今天更新的进行中的 Jira issues
+        uv run python cli.py export-filtered --today --status "进行中"
+
+        # 导出最近 7 天更新的待办和进行中的 issues
+        uv run python cli.py export-filtered --days 7 --status "待办" --status "进行中"
+
+        # 导出昨天更新的所有 Confluence 页面
+        uv run python cli.py export-filtered --type confluence --yesterday
+    """
+    source_path = Path(source_dir)
+    output_path = Path(output)
+
+    # 确定时间过滤条件
+    target_date = None
+    date_range_start = None
+    date_range_end = None
+
+    if today:
+        target_date = date.today()
+        click.echo(f"筛选条件: 今天更新 ({target_date})")
+    elif yesterday:
+        target_date = date.today() - timedelta(days=1)
+        click.echo(f"筛选条件: 昨天更新 ({target_date})")
+    elif days:
+        date_range_end = date.today()
+        date_range_start = date_range_end - timedelta(days=days)
+        click.echo(f"筛选条件: 最近 {days} 天更新 ({date_range_start} 至 {date_range_end})")
+
+    # 状态过滤
+    if statuses:
+        click.echo(f"状态筛选: {', '.join(statuses)}")
+
+    # 创建输出目录
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # 查找并过滤文件
+    matched_files = []
+
+    if doc_type == 'jira':
+        # 查找所有 Jira markdown 文件
+        jira_pattern = re.compile(r'^[A-Z]+-\d+\.md$')
+
+        # 在 sources/ 目录和 sources/jira/ 子目录中查找
+        search_paths = [source_path, source_path / 'jira']
+
+        for search_dir in search_paths:
+            if not search_dir.exists():
+                continue
+
+            for md_file in search_dir.rglob('*.md'):
+                # 检查文件名是否匹配 Jira issue key 格式
+                if not jira_pattern.match(md_file.name):
+                    continue
+
+                # 解析元数据
+                metadata = _parse_jira_metadata(md_file)
+                if not metadata:
+                    continue
+
+                # 时间过滤
+                if target_date and metadata.get('update_date') != target_date:
+                    continue
+                if date_range_start and date_range_end:
+                    update_date = metadata.get('update_date')
+                    if not update_date or not (date_range_start <= update_date <= date_range_end):
+                        continue
+
+                # 状态过滤
+                if statuses and metadata.get('status') not in statuses:
+                    continue
+
+                matched_files.append((md_file, metadata))
+
+    elif doc_type == 'confluence':
+        # 查找所有 Confluence markdown 文件
+        confluence_dir = source_path / 'confluence'
+
+        if not confluence_dir.exists():
+            click.echo(f"错误: Confluence 目录不存在: {confluence_dir}", err=True)
+            return
+
+        for md_file in confluence_dir.rglob('*.md'):
+            # 解析元数据
+            metadata = _parse_confluence_metadata(md_file)
+            if not metadata:
+                continue
+
+            # 时间过滤
+            if target_date and metadata.get('update_date') != target_date:
+                continue
+            if date_range_start and date_range_end:
+                update_date = metadata.get('update_date')
+                if not update_date or not (date_range_start <= update_date <= date_range_end):
+                    continue
+
+            matched_files.append((md_file, metadata))
+
+    # 导出文件
+    if not matched_files:
+        click.echo("\n未找到匹配的文件")
+        return
+
+    click.echo(f"\n找到 {len(matched_files)} 个匹配的文件，开始导出...")
+
+    exported_count = 0
+    for file_path, metadata in matched_files:
+        try:
+            # 保持相对路径结构
+            rel_path = file_path.relative_to(source_path)
+            dest_path = output_path / rel_path
+
+            # 创建目标目录
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # 复制文件
+            shutil.copy2(file_path, dest_path)
+            exported_count += 1
+
+            click.echo(f"  ✓ {rel_path}")
+        except Exception as e:
+            click.echo(f"  ✗ {file_path}: {e}", err=True)
+
+    # 生成摘要文件
+    summary_path = output_path / 'SUMMARY.md'
+    with open(summary_path, 'w', encoding='utf-8') as f:
+        f.write(f"# 导出摘要\n\n")
+        f.write(f"- **导出时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"- **文档类型**: {doc_type}\n")
+
+        if target_date:
+            f.write(f"- **时间筛选**: {target_date}\n")
+        elif date_range_start and date_range_end:
+            f.write(f"- **时间筛选**: {date_range_start} 至 {date_range_end}\n")
+
+        if statuses:
+            f.write(f"- **状态筛选**: {', '.join(statuses)}\n")
+
+        f.write(f"- **导出文件数**: {exported_count}\n\n")
+
+        f.write(f"## 文件列表\n\n")
+        for file_path, metadata in matched_files:
+            rel_path = file_path.relative_to(source_path)
+            f.write(f"- [{rel_path}](./{rel_path})")
+            if doc_type == 'jira':
+                f.write(f" - 状态: {metadata.get('status', 'N/A')}, 更新: {metadata.get('update_date', 'N/A')}")
+            else:
+                f.write(f" - 更新: {metadata.get('update_date', 'N/A')}")
+            f.write("\n")
+
+    click.echo(f"\n✅ 导出完成!")
+    click.echo(f"   导出目录: {output_path}")
+    click.echo(f"   导出文件数: {exported_count}")
+    click.echo(f"   摘要文件: {summary_path}")
 
 
 if __name__ == '__main__':
