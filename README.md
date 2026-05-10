@@ -88,7 +88,23 @@ uv run python cli.py list-jira --status "进行中"
 # 按优先级过滤
 uv run python cli.py list-jira --priority Highest
 
-# 3. 筛选导出文档（可选）
+# 3. 自动报告生成
+# 生成本周周报
+uv run python cli.py generate-report
+
+# 生成今日日报
+uv run python cli.py generate-report --type daily
+
+# 生成月报
+uv run python cli.py generate-report --type monthly
+
+# 生成指定时间范围的报告
+uv run python cli.py generate-report --start 2026-05-01 --end 2026-05-07
+
+# 输出为 JSON 格式
+uv run python cli.py generate-report --format json
+
+# 4. 筛选导出文档（可选）
 # 导出今天更新的进行中的 Jira issues
 uv run python cli.py export-filtered --today --status "进行中"
 
