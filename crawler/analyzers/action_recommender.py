@@ -6,6 +6,7 @@ from typing import Dict, Any
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
+from crawler.llm_utils import clean_llm_output
 
 
 class ActionRecommender(BaseAnalyzer):
@@ -40,6 +41,9 @@ class ActionRecommender(BaseAnalyzer):
         # 调用 LLM
         context.increment_llm_calls()
         response = self.llm_client.generate(prompt, max_tokens=1200)
+
+        # 清理输出
+        response = clean_llm_output(response)
 
         # 解析响应
         result = self._parse_response(response)
@@ -95,7 +99,24 @@ Issue: [{jira_data['key']}] {jira_data['title']}
 2. 中期行动（1-2 个月内）：需要规划和实施的改进
 3. 长期行动（3 个月以上）：系统性的优化和预防措施
 
-每个维度提供 2-3 条具体可执行的建议。
+要求：
+- 每个维度提供 2-3 条具体可执行的建议
+- 使用列表格式（数字或破折号开头）
+- 直接输出建议，不要输出思考过程
+- 不要使用 <think> 标签
+- 按照以下格式回答：
+
+短期行动（1-2 周内）：
+1. [具体建议]
+2. [具体建议]
+
+中期行动（1-2 个月内）：
+1. [具体建议]
+2. [具体建议]
+
+长期行动（3 个月以上）：
+1. [具体建议]
+2. [具体建议]
 """
         return prompt
 
