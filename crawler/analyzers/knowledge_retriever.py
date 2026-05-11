@@ -258,12 +258,15 @@ class KnowledgeRetriever(BaseAnalyzer):
             context: 分析上下文
 
         Returns:
-            增强了相关性分析的 Wiki 结果
+            增强了相关性分析的 Wiki 结果（已排序和过滤）
         """
+        import json
+        import re
+
         enhanced_results = []
 
-        for concept in wiki_results[:3]:  # 只分析前 3 个概念，避免过多 LLM 调用
-            # 构建 prompt
+        for i, concept in enumerate(wiki_results, 1):
+            # 构建结构化 prompt
             prompt = f"""请分析以下 Wiki 概念与 Jira Issue 的相关性：
 
 Jira Issue: [{jira_data['key']}] {jira_data['title']}
@@ -272,34 +275,71 @@ Jira Issue: [{jira_data['key']}] {jira_data['title']}
 Wiki 概念: {concept['keyword']}
 内容: {concept['content'][:600]}
 
-请简要说明：
-1. 这个概念与该 Issue 的相关性（高/中/低）
-2. 为什么相关或不相关（1-2句话）
-3. 这个概念对理解该 Issue 有什么帮助
+请评估：
+1. 相关性得分（0-10分，10分最相关）
+2. 相关原因（简短说明为什么相关或不相关）
 
-请用简洁的中文回答，不超过 150 字。"""
+请以 JSON 格式返回：
+{{"score": 分数, "reason": "原因"}}"""
 
             try:
+                # 显示进度
+                print(f"   [knowledge] 分析概念相关性 {i}/{len(wiki_results)}: {concept['keyword']}")
+
                 # 调用 LLM
                 context.increment_llm_calls()
                 response = self.llm_client.generate(prompt, max_tokens=300)
-                response = clean_llm_output(response)
+
+                # 尝试解析 JSON
+                score = 0
+                reason = '无法分析'
+
+                # 方法1: 尝试直接解析 JSON
+                try:
+                    json_match = re.search(r'\{[^}]+\}', response)
+                    if json_match:
+                        data = json.loads(json_match.group(0))
+                        score = int(data.get('score', 0))
+                        reason = data.get('reason', '无法分析')
+                except:
+                    # 方法2: 尝试提取键值对
+                    score_match = re.search(r'["\']?score["\']?\s*[:：]\s*(\d+)', response, re.IGNORECASE)
+                    reason_match = re.search(r'["\']?reason["\']?\s*[:：]\s*["\']?([^"\'}\n]+)', response, re.IGNORECASE)
+
+                    if score_match:
+                        score = int(score_match.group(1))
+                    if reason_match:
+                        reason = reason_match.group(1).strip()
 
                 # 添加 LLM 分析结果
                 enhanced_concept = concept.copy()
-                enhanced_concept['llm_analysis'] = response.strip()
+                enhanced_concept['llm_analysis'] = {
+                    'score': score,
+                    'reason': reason
+                }
                 enhanced_results.append(enhanced_concept)
 
             except Exception as e:
-                # LLM 调用失败，保留原始概念
-                enhanced_results.append(concept)
+                # LLM 调用失败，给默认低分
+                enhanced_concept = concept.copy()
+                enhanced_concept['llm_analysis'] = {
+                    'score': 0,
+                    'reason': f'分析失败: {str(e)}'
+                }
+                enhanced_results.append(enhanced_concept)
                 context.add_warning(f"概念 '{concept['keyword']}' 的 LLM 分析失败: {str(e)}")
 
-        # 添加未分析的概念（如果有超过 3 个）
-        if len(wiki_results) > 3:
-            enhanced_results.extend(wiki_results[3:])
+        # 按相关性得分排序（降序）
+        enhanced_results.sort(key=lambda x: x.get('llm_analysis', {}).get('score', 0), reverse=True)
 
-        return enhanced_results
+        # 过滤掉低相关性概念（score < 5）
+        filtered_results = [r for r in enhanced_results if r.get('llm_analysis', {}).get('score', 0) >= 5]
+
+        # 如果过滤后没有结果，保留得分最高的 3 个
+        if not filtered_results and enhanced_results:
+            filtered_results = enhanced_results[:3]
+
+        return filtered_results
 
     def _search_sources(self, keywords: List[str]) -> List[Dict[str, Any]]:
         """
