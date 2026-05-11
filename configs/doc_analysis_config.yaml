@@ -38,7 +38,7 @@ retrieval:
 
 # LLM 配置
 llm:
-  provider: "mock"            # llmstudio 或 mock
+  provider: "llmstudio"       # llmstudio 或 mock
   base_url: "http://127.0.0.1:1234"  # LLMStudio 服务地址
   model: "qwen3.5-4b"
   timeout: 120                # 超时时间（秒）
