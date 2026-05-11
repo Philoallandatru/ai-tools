@@ -1,0 +1,79 @@
+# 文档分析配置文件
+
+# 文档切分配置
+splitting:
+  split_level: 2              # 按 H2 标题切分
+  max_chars: 5000             # 单个小节最大字符数
+
+# 检索配置
+retrieval:
+  # 代码库检索
+  code:
+    enabled: true
+    patterns:                 # 文件类型
+      - "**/*.py"
+      - "**/*.js"
+      - "**/*.ts"
+    exclude_dirs:             # 排除目录
+      - ".venv"
+      - "node_modules"
+      - "__pycache__"
+      - ".git"
+    context_lines: 3          # 匹配行的前后上下文行数
+
+  # 需求文档检索
+  docs:
+    enabled: true
+    path: "sources/"          # 需求文档目录
+    patterns:
+      - "*.md"
+    exclude_files:            # 排除文件
+      - "README.md"
+    context_lines: 5
+
+  # 检索策略
+  search:
+    max_results: 5            # 每个来源最多返回 N 个结果
+    min_match_length: 3       # 最小匹配关键词长度
+
+# LLM 配置
+llm:
+  provider: "mock"            # llmstudio 或 mock
+  base_url: "http://127.0.0.1:1234"  # LLMStudio 服务地址
+  model: "qwen3.5-4b"
+  timeout: 120                # 超时时间（秒）
+  temperature: 0.3
+
+# Prompt 模板
+prompts:
+  system: |
+    你是一个需求分析专家。你的任务是分析客户需求文档的内容，判断是否可以形成具体的需求或测试用例。
+
+  user_template: |
+    ## 当前文档小节
+
+    {section_content}
+
+    ## 相关代码参考
+
+    {code_context}
+
+    ## 相关需求文档参考
+
+    {docs_context}
+
+    ## 分析任务
+
+    请分析上述文档小节内容，回答以下问题：
+    1. 这个内容是否可以形成明确的功能需求（Requirement）？
+    2. 这个内容是否可以形成具体的测试用例步骤（Test Case）？
+    3. 参考相关代码和文档，给出你的分析建议。
+
+    请以 Markdown 格式输出分析结果。
+
+# 报告配置
+report:
+  output_dir: "reports/"
+  filename_template: "doc_analysis_{source_filename}_{timestamp}.md"
+  include_toc: true           # 是否包含目录
+  include_summary: true       # 是否包含总结

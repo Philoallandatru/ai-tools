@@ -103,11 +103,14 @@ class LLMStudioClient(BaseLLMClient):
             requests.RequestException: API 调用失败
         """
         try:
+            # 尝试使用 chat completions API
             response = requests.post(
-                f"{self.base_url}/v1/completions",
+                f"{self.base_url}/v1/chat/completions",
                 json={
                     "model": self.model,
-                    "prompt": prompt,
+                    "messages": [
+                        {"role": "user", "content": prompt}
+                    ],
                     "max_tokens": max_tokens,
                     "temperature": 0.7
                 },
@@ -118,8 +121,32 @@ class LLMStudioClient(BaseLLMClient):
             response.encoding = 'utf-8'  # 确保响应使用 UTF-8 解码
 
             result = response.json()
-            return result['choices'][0]['text'].strip()
+            return result['choices'][0]['message']['content'].strip()
 
+        except requests.HTTPError as e:
+            # 如果 chat completions 失败，尝试 completions API
+            if e.response.status_code == 404:
+                try:
+                    response = requests.post(
+                        f"{self.base_url}/v1/completions",
+                        json={
+                            "model": self.model,
+                            "prompt": prompt,
+                            "max_tokens": max_tokens,
+                            "temperature": 0.7
+                        },
+                        headers={"Content-Type": "application/json; charset=utf-8"},
+                        timeout=120
+                    )
+                    response.raise_for_status()
+                    response.encoding = 'utf-8'
+
+                    result = response.json()
+                    return result['choices'][0]['text'].strip()
+                except requests.RequestException as fallback_error:
+                    raise RuntimeError(f"LLMStudio API 调用失败 (两种端点都失败): {fallback_error}")
+            else:
+                raise RuntimeError(f"LLMStudio API 调用失败: {e}")
         except requests.Timeout:
             raise RuntimeError(f"LLMStudio API 调用超时（120秒）")
         except requests.RequestException as e:

@@ -28,7 +28,7 @@
 - ✅ **智能查询**: 基于 AI 的知识问答系统
 - ✅ **实时监控**: 自动监控源文件变化并重新编译
 
-### 4. Jira 深度分析 (NEW!)
+### 4. Jira 深度分析
 - ✅ **相关知识检索**: 从 Wiki 和源文件中检索相关技术知识
 - ✅ **根因分析**: 使用 LLM 分析问题的直接原因、深层原因和触发条件
 - ✅ **类似问题查找**: 基于关键词和根因匹配相似的 Jira Issues
@@ -36,6 +36,15 @@
 - ✅ **评论分析**: 分析评论的时间线、关键决策和合理性
 - ✅ **行动建议**: 生成短期、中期、长期的行动建议
 - ✅ **Markdown 报告**: 自动生成结构化的分析报告
+
+### 5. 文档分析 (NEW!)
+- ✅ **智能切分**: 按 Markdown 标题层级自动切分文档
+- ✅ **关键词提取**: 自动提取技术术语、标识符和中文词汇
+- ✅ **上下文检索**: 从代码库和需求文档中检索相关内容
+- ✅ **LLM 分析**: 判断内容是否可形成需求或测试用例
+- ✅ **批量处理**: 串行处理所有小节，自动生成完整报告
+- ✅ **配置灵活**: 通过 YAML 配置文件管理 prompt 和检索规则
+- ✅ **预览模式**: dry-run 模式预览处理结果
 
 ## 快速开始
 
@@ -97,14 +106,27 @@ uv run python cli.py list-jira --status "进行中"
 # 按优先级过滤
 uv run python cli.py list-jira --priority Highest
 
-# 3. Jira 深度分析（NEW!）
+# 3. Jira 深度分析
 # 使用 Mock LLM 分析（测试模式）
 uv run python cli.py analyze-jira KAN-2
 
 # 使用真实 LLM 分析（需要配置 llmstudio）
 uv run python cli.py analyze-jira KAN-2 --llm-provider llmstudio
 
-# 4. 自动报告生成
+# 4. 文档分析（NEW!）
+# 分析文档并生成需求/测试用例建议报告
+uv run python cli.py analyze-doc sources/KAN-1.md
+
+# 使用自定义配置
+uv run python cli.py analyze-doc sources/requirements.md --config custom_config.yaml
+
+# 预览模式（不调用 LLM）
+uv run python cli.py analyze-doc sources/spec.md --dry-run
+
+# 指定输出路径
+uv run python cli.py analyze-doc sources/doc.md --output reports/my_analysis.md
+
+# 5. 自动报告生成
 # 生成本周周报
 uv run python cli.py generate-report
 
@@ -157,12 +179,16 @@ ai-tools/
 │   ├── storage.py       # 存储管理
 │   ├── error_handler.py # 错误处理
 │   ├── doc_splitter.py  # 文档拆分工具
-│   └── searcher.py      # 全文搜索引擎
+│   ├── searcher.py      # 全文搜索引擎
+│   └── doc_analyzer.py  # 文档分析器（NEW!）
+├── configs/             # 配置文件目录（NEW!）
+│   └── doc_analysis_config.yaml  # 文档分析配置
 ├── sources/             # 爬取的源文件（57 个 Markdown）
 ├── wiki/                # 编译后的知识库
 │   ├── concepts/        # 341 个概念页面
 │   ├── index.md         # 索引页面
 │   └── MOC.md          # 概念地图
+├── reports/             # 分析报告输出目录
 ├── .llmwiki/           # Wiki 编译缓存
 ├── docs/               # 文档
 │   ├── DESIGN.md       # 设计文档
@@ -170,7 +196,8 @@ ai-tools/
 │   ├── USAGE.md        # 使用指南
 │   ├── SCHEDULER.md    # 定时任务配置
 │   ├── WIKI_INTEGRATION.md      # Wiki 集成文档
-│   └── WIKI_SETUP_COMPLETE.md   # Wiki 完成总结
+│   ├── WIKI_SETUP_COMPLETE.md   # Wiki 完成总结
+│   └── DOC_ANALYZER_DESIGN.md   # 文档分析器设计（NEW!）
 ├── cli.py              # CLI 命令入口
 ├── scheduler.py        # 定时任务调度器
 ├── health-check.py     # 健康检查脚本
