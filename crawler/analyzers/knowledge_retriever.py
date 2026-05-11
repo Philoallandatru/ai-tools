@@ -4,6 +4,8 @@
 
 import subprocess
 import re
+import json
+import hashlib
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from crawler.analyzers.base import BaseAnalyzer
@@ -16,7 +18,10 @@ from crawler.llm_utils import clean_llm_output
 class KnowledgeRetriever(BaseAnalyzer):
     """知识检索分析器 - 双重检索策略（Wiki + 源文件搜索）+ LLM 相关性分析"""
 
-    def __init__(self, source_dir: str = './sources', wiki_dir: str = './wiki', llm_client: Optional[BaseLLMClient] = None):
+    # 分析器版本号，用于缓存失效
+    VERSION = "1.0.0"
+
+    def __init__(self, source_dir: str = './sources', wiki_dir: str = './wiki', llm_client: Optional[BaseLLMClient] = None, cache_dir: str = './.cache'):
         """
         初始化知识检索器
 
@@ -24,14 +29,66 @@ class KnowledgeRetriever(BaseAnalyzer):
             source_dir: 源文件目录
             wiki_dir: Wiki 目录
             llm_client: LLM 客户端（可选，用于分析概念相关性）
+            cache_dir: 缓存目录
         """
         self.source_dir = Path(source_dir)
         self.wiki_dir = Path(wiki_dir)
         self.searcher = ContentSearcher(str(self.source_dir))
         self.llm_client = llm_client
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(exist_ok=True)
 
     def get_name(self) -> str:
         return "knowledge"
+
+    def _get_cache_key(self, jira_key: str) -> str:
+        """
+        生成缓存键
+
+        Args:
+            jira_key: Jira issue key
+
+        Returns:
+            缓存文件路径
+        """
+        # 使用 issue key + 版本号生成缓存键
+        cache_key = f"{jira_key}_{self.VERSION}"
+        return str(self.cache_dir / f"knowledge_{cache_key}.json")
+
+    def _load_cache(self, jira_key: str) -> Optional[Dict[str, Any]]:
+        """
+        加载缓存结果
+
+        Args:
+            jira_key: Jira issue key
+
+        Returns:
+            缓存的分析结果，如果不存在返回 None
+        """
+        cache_file = self._get_cache_key(jira_key)
+        try:
+            if Path(cache_file).exists():
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    print(f"   [knowledge] 使用缓存结果")
+                    return json.load(f)
+        except Exception as e:
+            print(f"   [knowledge] 缓存加载失败: {str(e)}")
+        return None
+
+    def _save_cache(self, jira_key: str, result: Dict[str, Any]) -> None:
+        """
+        保存分析结果到缓存
+
+        Args:
+            jira_key: Jira issue key
+            result: 分析结果
+        """
+        cache_file = self._get_cache_key(jira_key)
+        try:
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump(result, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"   [knowledge] 缓存保存失败: {str(e)}")
 
     def analyze(self, jira_data: Dict[str, Any], context: AnalysisContext) -> Dict[str, Any]:
         """
@@ -44,6 +101,13 @@ class KnowledgeRetriever(BaseAnalyzer):
         Returns:
             包含 wiki_concepts 和 related_sources 的字典
         """
+        jira_key = jira_data.get('key', '')
+
+        # 尝试加载缓存
+        cached_result = self._load_cache(jira_key)
+        if cached_result:
+            return cached_result
+
         # 1. 提取关键词
         keywords = self._extract_keywords(jira_data)
 
@@ -57,11 +121,16 @@ class KnowledgeRetriever(BaseAnalyzer):
         # 4. 源文件搜索
         source_results = self._search_sources(keywords)
 
-        return {
+        result = {
             'keywords': keywords,
             'wiki_concepts': wiki_results,
             'related_sources': source_results
         }
+
+        # 保存到缓存
+        self._save_cache(jira_key, result)
+
+        return result
 
     def _extract_keywords(self, jira_data: Dict[str, Any]) -> List[str]:
         """

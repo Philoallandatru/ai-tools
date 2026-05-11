@@ -1,0 +1,46 @@
+{
+  "keywords": [
+    "SN5100",
+    "NVMe",
+    "SSD",
+    "FW_2.8.0_RC3",
+    "Thermal Throttling",
+    "Batch",
+    "Sequential Write",
+    "CrystalDiskMark",
+    "PCIe"
+  ],
+  "wiki_concepts": [
+    {
+      "keyword": "NVMe",
+      "content": "---\ntitle: Controller Attributes与NVMe命令集的关系\nsummary: CAP结构体定义控制器支持的NVMe命令集属性，包括I/O命令集选择(命令集字段)和Controller Attributes结构体的从属关系\nsources:\n  - nvme-443-Common-Identify-Data-Structures.md\nkind: concept\ncreatedAt: \"2026-05-08T13:37:41.664Z\"\nupdatedAt: \"2026-05-08T13:37:41.664Z\"\ntags:\n  - nvme\n  - command-set\n  - controller\naliases:\n  - controller-attributes与nvme命令集的关系\nconfidence: 0.75\nprovenanceState: merged\n---\n\n<think>The user wants me to write a wiki page about \"Controller Attributes与NVMe命令集的关系\" (The Relationship between Controller Attributes and NVMe Command Sets).\n\nLooking at the source materials provided, I need to find information about Controller Attributes and their relationship to the NVMe command set.\n\nThe source materials include:\n1. nvme-363-Firmware-Commit-command.md - about Firmwar",
+      "source": "filename_partial",
+      "file": "controller-attributes与nvme命令集的关系.md",
+      "llm_analysis": {
+        "score": 4,
+        "reason": "虽然 Wiki 概念涉及 NVMe，但内容聚焦于控制器属性（CAP 结构体）与命令集定义的底层关系。而 Jira Issue 关注的是不同生产批次固件中热节流阈值不一致的测试问题，属于硬件一致性或固件配置层面的工程问题，两者在技术深度和应用场景上关联较弱。"
+      }
+    },
+    {
+      "keyword": "SN5100",
+      "content": "---\ntitle: SN5100 Azure数据中心规模性RMA事件\nsummary: SN5100固件Trim SPOR问题影响Microsoft Azure数据中心200+台服务器，导致现场设备恢复和RMA成本\nsources:\n  - KAN-12.md\nkind: concept\ncreatedAt: \"2026-05-07T19:52:23.095Z\"\nupdatedAt: \"2026-05-07T19:52:23.095Z\"\ntags:\n  - SSD\n  - 客户现场\n  - 故障定位\naliases:\n  - sn5100-azure数据中心规模性rma事件\nconfidence: 0.85\nprovenanceState: extracted\n---\n\n<think>The user wants me to write a wiki page about \"SN5100 Azure数据中心规模性RMA事件\" (SN5100 Azure Data Center Large-scale RMA Event). \n\nLet me analyze the source material to extract relevant facts. Looking at the KAN-12.md file, which contains a bug report about \"Trim SPOR Causes Metadata Corruption\" for SN5100:\n\nKey facts from the source material:\n1. **Product**: SN5100 NVMe SSD 512GB, FW_2.8.0_RC3\n2. **Issue**: Trim operation during SPOR (Sudden Power Off Re",
+      "source": "filename_partial",
+      "file": "sn5100-azure数据中心规模性rma事件.md",
+      "llm_analysis": {
+        "score": 4,
+        "reason": "虽然两者都涉及 SN5100 产品且属于固件问题，但 Jira Issue KAN-13 关注的是 DQA 阶段的批次间热节流（Thermal Throttling）一致性测试，而 Wiki 概念 KAN-12 描述的是 Azure 数据中心发生的 Trim SPOR 故障导致的 RMA 事件。两者的故障现象、影响范围和上下文完全不同。"
+      }
+    },
+    {
+      "keyword": "SSD",
+      "content": "---\ntitle: AMD RAS可靠性测试认证对SSD错误处理的要求\nsummary: AMD EPYC平台RAS测试要求SSD在高频错误注入场景下保持稳定运行，不得因错误处理逻辑缺陷导致系统崩溃，是企业级SSD平台认证的关键测试项\nsources:\n  - KAN-17.md\nkind: concept\ncreatedAt: \"2026-05-07T19:52:22.773Z\"\nupdatedAt: \"2026-05-07T19:52:22.773Z\"\ntags:\n  - amd平台\n  - ras测试\n  - ssd认证\n  - 平台合规性\naliases:\n  - amd-ras可靠性测试认证对ssd错误处理的要求\nconfidence: 0.9\nprovenanceState: extracted\n---\n\n<think>The user wants me to write a wiki page about \"AMD RAS可靠性测试认证对SSD错误处理的要求\". I need to analyze the source material provided in the context and write a well-structured markdown page in zh-CN.\n\nLet me analyze the sources:\n\n1. **KAN-17.md** - This is a bug report about high-frequency PCIe AER error injection causing CPU saturation in interrupt handler and triggering watchdog reset. This is about AMD EPYC 9004 (Genoa) platform RAS ",
+      "source": "filename_partial",
+      "file": "amd-ras可靠性测试认证对ssd错误处理的要求.md",
+      "llm_analysis": {
+        "score": 3,
+        "reason": "Jira Issue[KAN-13]关注的是SN5100 NVMe SSD固件中不同生产批次的‘热节流阈值不一致’问题，属于硬件一致性验证与性能测试范畴；而Wiki概念[SSD]描述的是AMD RAS（可靠性、可用性、可服务性）认证中对SSD在错误注入场景下的稳定运行要求，侧重于系统容错性与崩溃防护。两者虽均涉及SSD的可靠性测试，但关注点不同：前者是批次间硬件行为的一致性验证，后者是企业级平台对错误处理逻辑合规性的认证标准，因此相关性较低。"
+      }
+    }
+  ],
+  "related_sources": []
+}
