@@ -243,6 +243,41 @@ class JiraDeepAnalyzer:
         # 默认格式化
         return self._format_default(result)
 
+    def _clean_wiki_content(self, content: str) -> str:
+        """清理 Wiki 内容，去除 frontmatter 和 <think> 标签"""
+        import re
+
+        if not content:
+            return ""
+
+        # 1. 首先尝试提取 summary（在 frontmatter 中）
+        summary_match = re.search(r'summary:\s*(.+?)(?:\n|sources:|kind:|createdAt:)', content, re.IGNORECASE | re.DOTALL)
+        if summary_match:
+            summary = summary_match.group(1).strip()
+            # 清理 summary 中可能的多余空白
+            summary = re.sub(r'\s+', ' ', summary)
+            return summary
+
+        # 2. 去除 frontmatter (--- ... ---)
+        content = re.sub(r'^---\n.*?\n---\n', '', content, flags=re.DOTALL)
+
+        # 3. 去除 <think> 标签及其内容（循环处理嵌套）
+        max_iterations = 5
+        for _ in range(max_iterations):
+            prev_content = content
+            content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL | re.IGNORECASE)
+            if content == prev_content:
+                break
+
+        # 4. 去除单独的标签
+        content = re.sub(r'</?think>', '', content, flags=re.IGNORECASE)
+
+        # 5. 去除多余的空行
+        content = re.sub(r'\n{3,}', '\n\n', content)
+
+        # 6. 返回清理后的内容
+        return content.strip()
+
     def _format_knowledge(self, result: Dict[str, Any]) -> str:
         """格式化知识检索结果"""
         lines = []
@@ -279,7 +314,7 @@ class JiraDeepAnalyzer:
                 keyword = concept['keyword']
                 source = concept.get('source', 'unknown')
                 file_name = concept.get('file', '')
-                llm_analysis = concept.get('llm_analysis', '')
+                llm_analysis = concept.get('llm_analysis', {})
 
                 # 显示关键词和来源
                 if file_name:
@@ -287,13 +322,30 @@ class JiraDeepAnalyzer:
                 else:
                     lines.append(f"**{keyword}**:")
 
-                # 显示概念内容
-                lines.append(f"{concept['content'][:500]}...")
+                # 清理并提取概念内容
+                content = concept.get('content', '')
+                cleaned_content = self._clean_wiki_content(content)
+
+                # 显示清理后的内容（最多 300 字符）
+                if cleaned_content:
+                    lines.append(f"   {cleaned_content[:300]}...")
                 lines.append("")
 
                 # 如果有 LLM 分析，显示相关性分析
                 if llm_analysis:
-                    lines.append(f"*相关性分析*: {llm_analysis}")
+                    score = llm_analysis.get('score', 0)
+                    reason = llm_analysis.get('reason', '无分析')
+
+                    # 根据得分显示相关性等级
+                    if score >= 7:
+                        relevance = "高"
+                    elif score >= 4:
+                        relevance = "中"
+                    else:
+                        relevance = "低"
+
+                    lines.append(f"   **相关性**: {relevance} ({score}/10)")
+                    lines.append(f"   **分析**: {reason}")
                     lines.append("")
 
         related_sources = result.get('related_sources', [])
