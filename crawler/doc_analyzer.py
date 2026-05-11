@@ -41,6 +41,7 @@ class AnalysisResult:
     llm_response: str
     retrieval_context: RetrievalContext
     keywords: List[str]
+    image_references: List[Dict[str, str]]
 
 
 class DocumentAnalyzer:
@@ -126,6 +127,11 @@ class DocumentAnalyzer:
                 keywords = self._extract_keywords(section.content)
                 print(f"      关键词: {', '.join(keywords[:5])}{'...' if len(keywords) > 5 else ''}")
 
+                # 提取图片引用
+                images = self._extract_images(section.content)
+                if images:
+                    print(f"      📷 找到 {len(images)} 个图片引用")
+
                 # 检索上下文
                 print(f"      🔍 检索相关内容...")
                 context = self._retrieve_context(section, keywords)
@@ -143,7 +149,8 @@ class DocumentAnalyzer:
                     section=section,
                     llm_response=llm_response,
                     retrieval_context=context,
-                    keywords=keywords
+                    keywords=keywords,
+                    image_references=images
                 ))
 
             except Exception as e:
@@ -205,6 +212,29 @@ class DocumentAnalyzer:
         keywords = list(set(k for k in keywords if len(k) >= min_length))
 
         return keywords
+
+    def _extract_images(self, content: str) -> List[Dict[str, str]]:
+        """
+        从 Markdown 内容中提取图片引用
+
+        Args:
+            content: Markdown 文本内容
+
+        Returns:
+            图片引用列表，每项包含 alt 和 path
+        """
+        # Markdown 图片语法：![alt text](image_path)
+        pattern = r'!\[(.*?)\]\((.*?)\)'
+        matches = re.findall(pattern, content)
+
+        images = []
+        for alt, path in matches:
+            images.append({
+                'alt': alt.strip() if alt.strip() else '(无描述)',
+                'path': path.strip()
+            })
+
+        return images
 
     def _retrieve_context(
         self,
@@ -434,6 +464,12 @@ class DocumentAnalyzer:
             report_lines.append("\n### 原始内容\n")
             report_lines.append(f"> {result.section.content[:500]}{'...' if len(result.section.content) > 500 else ''}\n")
 
+            # 图片引用
+            if result.image_references:
+                report_lines.append("\n### 包含的图片\n")
+                for img in result.image_references:
+                    report_lines.append(f"- **{img['alt']}**: `{img['path']}`\n")
+
             # 检索到的上下文
             report_lines.append("\n### 检索到的相关上下文\n")
 
@@ -480,12 +516,14 @@ class DocumentAnalyzer:
         total_sections = len(results)
         total_code_snippets = sum(len(r.retrieval_context.code_snippets) for r in results)
         total_doc_snippets = sum(len(r.retrieval_context.doc_snippets) for r in results)
+        total_images = sum(len(r.image_references) for r in results)
 
         summary_lines = []
         summary_lines.append("\n### 统计信息\n")
         summary_lines.append(f"- **总小节数**: {total_sections}\n")
         summary_lines.append(f"- **检索到的代码片段**: {total_code_snippets}\n")
         summary_lines.append(f"- **检索到的文档片段**: {total_doc_snippets}\n")
+        summary_lines.append(f"- **包含的图片**: {total_images}\n")
 
         summary_lines.append("\n### 关键发现\n")
         summary_lines.append("（基于 LLM 分析结果，请查看各小节的详细分析）\n")

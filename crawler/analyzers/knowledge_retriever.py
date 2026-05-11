@@ -248,26 +248,25 @@ class KnowledgeRetriever(BaseAnalyzer):
 
         return results
 
-    def _analyze_concept_relevance(self, jira_data: Dict[str, Any], wiki_results: List[Dict[str, str]], context: AnalysisContext) -> List[Dict[str, str]]:
+    def _analyze_single_concept(self, jira_data: Dict[str, Any], concept: Dict[str, str], index: int, total: int, context: AnalysisContext) -> Dict[str, str]:
         """
-        使用 LLM 分析检索到的概念与 Jira issue 的相关性
+        分析单个概念的相关性（用于并行处理）
 
         Args:
             jira_data: Jira 数据
-            wiki_results: Wiki 检索结果
+            concept: Wiki 概念
+            index: 概念索引（用于进度显示）
+            total: 总概念数
             context: 分析上下文
 
         Returns:
-            增强了相关性分析的 Wiki 结果（已排序和过滤）
+            增强了相关性分析的概念
         """
         import json
         import re
 
-        enhanced_results = []
-
-        for i, concept in enumerate(wiki_results, 1):
-            # 构建结构化 prompt
-            prompt = f"""请分析以下 Wiki 概念与 Jira Issue 的相关性：
+        # 构建结构化 prompt
+        prompt = f"""请分析以下 Wiki 概念与 Jira Issue 的相关性：
 
 Jira Issue: [{jira_data['key']}] {jira_data['title']}
 描述: {jira_data['description'][:500]}
@@ -282,52 +281,99 @@ Wiki 概念: {concept['keyword']}
 请以 JSON 格式返回：
 {{"score": 分数, "reason": "原因"}}"""
 
+        try:
+            # 显示进度
+            print(f"   [knowledge] 分析概念相关性 {index}/{total}: {concept['keyword']}")
+
+            # 调用 LLM
+            context.increment_llm_calls()
+            response = self.llm_client.generate(prompt, max_tokens=300)
+
+            # 尝试解析 JSON
+            score = 0
+            reason = '无法分析'
+
+            # 方法1: 尝试直接解析 JSON
             try:
-                # 显示进度
-                print(f"   [knowledge] 分析概念相关性 {i}/{len(wiki_results)}: {concept['keyword']}")
+                json_match = re.search(r'\{[^}]+\}', response)
+                if json_match:
+                    data = json.loads(json_match.group(0))
+                    score = int(data.get('score', 0))
+                    reason = data.get('reason', '无法分析')
+            except:
+                # 方法2: 尝试提取键值对
+                score_match = re.search(r'["\']?score["\']?\s*[:：]\s*(\d+)', response, re.IGNORECASE)
+                reason_match = re.search(r'["\']?reason["\']?\s*[:：]\s*["\']?([^"\'}\n]+)', response, re.IGNORECASE)
 
-                # 调用 LLM
-                context.increment_llm_calls()
-                response = self.llm_client.generate(prompt, max_tokens=300)
+                if score_match:
+                    score = int(score_match.group(1))
+                if reason_match:
+                    reason = reason_match.group(1).strip()
 
-                # 尝试解析 JSON
-                score = 0
-                reason = '无法分析'
+            # 添加 LLM 分析结果
+            enhanced_concept = concept.copy()
+            enhanced_concept['llm_analysis'] = {
+                'score': score,
+                'reason': reason
+            }
+            return enhanced_concept
 
-                # 方法1: 尝试直接解析 JSON
+        except Exception as e:
+            # LLM 调用失败，给默认低分
+            enhanced_concept = concept.copy()
+            enhanced_concept['llm_analysis'] = {
+                'score': 0,
+                'reason': f'分析失败: {str(e)}'
+            }
+            context.add_warning(f"概念 '{concept['keyword']}' 的 LLM 分析失败: {str(e)}")
+            return enhanced_concept
+
+    def _analyze_concept_relevance(self, jira_data: Dict[str, Any], wiki_results: List[Dict[str, str]], context: AnalysisContext) -> List[Dict[str, str]]:
+        """
+        使用 LLM 并行分析检索到的概念与 Jira issue 的相关性
+
+        Args:
+            jira_data: Jira 数据
+            wiki_results: Wiki 检索结果
+            context: 分析上下文
+
+        Returns:
+            增强了相关性分析的 Wiki 结果（已排序和过滤）
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        enhanced_results = []
+
+        # 使用线程池并行处理
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            # 提交所有任务
+            future_to_concept = {
+                executor.submit(
+                    self._analyze_single_concept,
+                    jira_data,
+                    concept,
+                    i,
+                    len(wiki_results),
+                    context
+                ): concept
+                for i, concept in enumerate(wiki_results, 1)
+            }
+
+            # 收集结果
+            for future in as_completed(future_to_concept):
                 try:
-                    json_match = re.search(r'\{[^}]+\}', response)
-                    if json_match:
-                        data = json.loads(json_match.group(0))
-                        score = int(data.get('score', 0))
-                        reason = data.get('reason', '无法分析')
-                except:
-                    # 方法2: 尝试提取键值对
-                    score_match = re.search(r'["\']?score["\']?\s*[:：]\s*(\d+)', response, re.IGNORECASE)
-                    reason_match = re.search(r'["\']?reason["\']?\s*[:：]\s*["\']?([^"\'}\n]+)', response, re.IGNORECASE)
-
-                    if score_match:
-                        score = int(score_match.group(1))
-                    if reason_match:
-                        reason = reason_match.group(1).strip()
-
-                # 添加 LLM 分析结果
-                enhanced_concept = concept.copy()
-                enhanced_concept['llm_analysis'] = {
-                    'score': score,
-                    'reason': reason
-                }
-                enhanced_results.append(enhanced_concept)
-
-            except Exception as e:
-                # LLM 调用失败，给默认低分
-                enhanced_concept = concept.copy()
-                enhanced_concept['llm_analysis'] = {
-                    'score': 0,
-                    'reason': f'分析失败: {str(e)}'
-                }
-                enhanced_results.append(enhanced_concept)
-                context.add_warning(f"概念 '{concept['keyword']}' 的 LLM 分析失败: {str(e)}")
+                    result = future.result()
+                    enhanced_results.append(result)
+                except Exception as e:
+                    concept = future_to_concept[future]
+                    # 如果线程执行失败，添加默认结果
+                    enhanced_concept = concept.copy()
+                    enhanced_concept['llm_analysis'] = {
+                        'score': 0,
+                        'reason': f'并行处理失败: {str(e)}'
+                    }
+                    enhanced_results.append(enhanced_concept)
+                    context.add_warning(f"概念 '{concept['keyword']}' 的并行分析失败: {str(e)}")
 
         # 按相关性得分排序（降序）
         enhanced_results.sort(key=lambda x: x.get('llm_analysis', {}).get('score', 0), reverse=True)
