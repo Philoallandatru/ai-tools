@@ -1227,5 +1227,74 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
         sys.exit(1)
 
 
+@cli.command()
+@click.argument('doc_path', type=click.Path(exists=True))
+@click.option('--config',
+              default='configs/doc_analysis_config.yaml',
+              help='配置文件路径')
+@click.option('--output',
+              help='输出报告路径（可选，默认使用配置中的规则）')
+@click.option('--dry-run',
+              is_flag=True,
+              help='预览模式：只显示会处理哪些小节，不实际调用 LLM')
+def analyze_doc(doc_path, config, output, dry_run):
+    """
+    分析文档并生成需求/测试用例建议报告
+
+    示例:
+        uv run python cli.py analyze-doc sources/KAN-1.md
+        uv run python cli.py analyze-doc sources/requirements.md --config custom_config.yaml
+        uv run python cli.py analyze-doc sources/spec.md --dry-run
+    """
+    from crawler.doc_analyzer import DocumentAnalyzer
+
+    click.echo(f"📄 文档分析工具")
+    click.echo(f"   文档: {doc_path}")
+    click.echo(f"   配置: {config}")
+    if dry_run:
+        click.echo(f"   模式: 预览模式（不调用 LLM）")
+    click.echo("")
+
+    try:
+        # 创建分析器
+        analyzer = DocumentAnalyzer(config_path=config)
+
+        # 执行分析
+        report_path = analyzer.analyze_document(
+            doc_path=doc_path,
+            output_path=output,
+            dry_run=dry_run
+        )
+
+        if not dry_run:
+            click.echo("")
+            click.echo(f"✅ 分析完成!")
+            click.echo(f"   报告文件: {report_path}")
+            click.echo("")
+
+            # 显示报告预览
+            click.echo("=" * 60)
+            click.echo("报告预览:")
+            click.echo("=" * 60)
+            with open(report_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                for line in lines[:40]:
+                    click.echo(line.rstrip())
+                if len(lines) > 40:
+                    click.echo(f"\n... (共 {len(lines)} 行，完整内容请查看文件)")
+
+    except FileNotFoundError as e:
+        click.echo(f"❌ 错误: {e}", err=True)
+        sys.exit(1)
+    except RuntimeError as e:
+        click.echo(f"❌ 分析失败: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ 未知错误: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
 if __name__ == '__main__':
     cli()
