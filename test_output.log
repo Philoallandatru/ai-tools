@@ -1,0 +1,127 @@
+🔍 开始分析 Jira Issue: KAN-13
+   LLM 提供商: llmstudio
+
+   使用 LLMStudio: http://127.0.0.1:1234
+
+📋 注册分析器...
+   已注册 6 个分析器
+
+🚀 开始执行分析流水线...
+   调用 analyzer.analyze('KAN-13')
+   📄 加载 Jira 数据: KAN-13
+   ✓ 数据加载完成
+   🔧 创建分析上下文
+   ✓ 上下文创建完成
+   🚀 开始执行 6 个分析器
+   ▶ 开始执行: knowledge
+   ✓ 完成: knowledge (12635ms)
+   ▶ 开始执行: root_cause
+   ✓ 完成: root_cause (5706ms)
+   ▶ 开始执行: similar_jira
+   [similar_jira] 加载所有 issues...
+   [similar_jira] 找到 21 个 issues
+   [similar_jira] 计算相似度...
+   [similar_jira] 找到 3 个相似 issues
+   [similar_jira] 开始 LLM 相关性分析（3 个）...
+   [similar_jira] 分析 1/3: KAN-10
+   [similar_jira] 调用 LLM (prompt 长度: 1021 字符)...
+   [similar_jira] LLM 响应完成 (长度: 201 字符)
+   [similar_jira] 完成 1/3
+   [similar_jira] 分析 2/3: KAN-11
+   [similar_jira] 调用 LLM (prompt 长度: 1025 字符)...
+   [similar_jira] LLM 响应完成 (长度: 201 字符)
+   [similar_jira] 完成 2/3
+   [similar_jira] 分析 3/3: KAN-12
+   [similar_jira] 调用 LLM (prompt 长度: 1020 字符)...
+   [similar_jira] LLM 响应完成 (长度: 242 字符)
+   [similar_jira] 完成 3/3
+   [similar_jira] 分析完成
+   ✓ 完成: similar_jira (16917ms)
+   ▶ 开始执行: closed_loop
+   [closed_loop] 检查状态...
+   [closed_loop] 构建提示词...
+   [closed_loop] 调用 LLM...
+   [closed_loop] LLM 响应完成
+   [closed_loop] 清理输出...
+   [closed_loop] 解析响应...
+   [closed_loop] 综合判断...
+   [closed_loop] 分析完成
+   ✓ 完成: closed_loop (21537ms)
+   ▶ 开始执行: comments
+[comments] 开始分析评论...
+[comments] 找到 10 条评论
+[comments] 分析评论 1/10...
+[comments] 完成评论 1/10
+[comments] 分析评论 2/10...
+[comments] 完成评论 2/10
+[comments] 分析评论 3/10...
+[comments] 完成评论 3/10
+[comments] 分析评论 4/10...
+[comments] 完成评论 4/10
+[comments] 分析评论 5/10...
+[comments] 完成评论 5/10
+[comments] 分析评论 6/10...
+[comments] 完成评论 6/10
+[comments] 分析评论 7/10...
+[comments] 完成评论 7/10
+[comments] 分析评论 8/10...
+[comments] 完成评论 8/10
+[comments] 分析评论 9/10...
+[comments] 完成评论 9/10
+[comments] 分析评论 10/10...
+[comments] 完成评论 10/10
+[comments] 生成摘要...
+[comments] 分析完成
+   ✓ 完成: comments (45466ms)
+   ▶ 开始执行: actions
+   ✓ 完成: actions (12329ms)
+   ✓ 分析完成
+
+✅ 分析完成!
+   报告文件: reports\jira_analysis_KAN-13_20260511_232433.md
+
+============================================================
+报告预览:
+============================================================
+# Jira 深度分析报告: [KAN-13] [Demo P] DQA Test: Thermal Throttling Inconsistency Across Batches
+
+**生成时间**: 2026-05-11T23:22:38.522084
+**状态**: 进行中 | **优先级**: High | **类型**: Bug
+
+## 相关知识检索
+
+**提取的关键词**: SSD, Throttling, SN5100, NVMe, Write, Batch, Thermal, Batches, Sequential, CrystalDiskMark
+
+### Wiki 概念
+
+*检索策略: 文件名部分匹配(4)*
+
+**SSD** (`amd-ras可靠性测试认证对ssd错误处理的要求.md`):
+---
+title: AMD RAS可靠性测试认证对SSD错误处理的要求
+summary: AMD EPYC平台RAS测试要求SSD在高频错误注入场景下保持稳定运行，不得因错误处理逻辑缺陷导致系统崩溃，是企业级SSD平台认证的关键测试项
+sources:
+  - KAN-17.md
+kind: concept
+createdAt: "2026-05-07T19:52:22.773Z"
+updatedAt: "2026-05-07T19:52:22.773Z"
+tags:
+  - amd平台
+  - ras测试
+  - ssd认证
+  - 平台合规性
+aliases:
+  - amd-ras可靠性测试认证对ssd错误处理的要求
+confidence: 0.9
+provenanceState: extracted
+---
+
+<think>The user wants me to write a wiki page about "AMD RAS可靠性测试认证对SSD错误处理的要求". I need to analyze the source material provided in the ...
+
+*相关性分析*: **相关性：低**  
+**原因**：Issue 关注“热节流阈值不一致”的性能测试，而 Wiki 仅涉及"SSD 错误处理与 RAS 认证”。  
+**帮助**：两者均针对 SSD 可靠性，但主题不同；Wiki 无法直接支持该 Issue 的复现或结果验证。
+
+**SN5100** (`sn5100-azure数据中心规模性rma事件.md`):
+
+... (共 318 行，完整内容请查看文件)
