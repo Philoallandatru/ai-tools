@@ -1183,7 +1183,11 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
 
         # 5. 执行分析
         click.echo("🚀 开始执行分析流水线...")
+        click.echo(f"   调用 analyzer.analyze('{issue_key}')")
+        import sys
+        sys.stdout.flush()
         report = analyzer.analyze(issue_key)
+        click.echo("   ✓ 分析完成")
 
         # 6. 保存报告
         output_path = Path(output_dir)

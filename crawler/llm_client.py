@@ -77,7 +77,7 @@ class MockLLMClient(BaseLLMClient):
 class LLMStudioClient(BaseLLMClient):
     """LLMStudio 客户端 - 连接本地 LLM 服务"""
 
-    def __init__(self, base_url: str = "http://127.0.0.1:1234", model: str = "qwen3.5-0.8b"):
+    def __init__(self, base_url: str = "http://127.0.0.1:1234", model: str = "qwen3.5-4b"):
         """
         初始化 LLMStudio 客户端
 
@@ -111,13 +111,17 @@ class LLMStudioClient(BaseLLMClient):
                     "max_tokens": max_tokens,
                     "temperature": 0.7
                 },
-                timeout=300  # 增加到 5 分钟
+                headers={"Content-Type": "application/json; charset=utf-8"},
+                timeout=60  # 减少到 60 秒
             )
             response.raise_for_status()
+            response.encoding = 'utf-8'  # 确保响应使用 UTF-8 解码
 
             result = response.json()
             return result['choices'][0]['text'].strip()
 
+        except requests.Timeout:
+            raise RuntimeError(f"LLMStudio API 调用超时（60秒）")
         except requests.RequestException as e:
             raise RuntimeError(f"LLMStudio API 调用失败: {e}")
 

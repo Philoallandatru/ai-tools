@@ -35,23 +35,32 @@ class ClosedLoopChecker(BaseAnalyzer):
         Returns:
             包含闭环检查结果的字典
         """
+        import sys
+
         # 1. 基础检查（基于状态）
+        print("   [closed_loop] 检查状态...", flush=True)
         status = jira_data.get('status', '').lower()
         is_closed_by_status = status in ['完成', 'done', '已解决', 'resolved', 'closed']
 
         # 2. 内容检查（使用 LLM）
+        print("   [closed_loop] 构建提示词...", flush=True)
         prompt = self._build_prompt(jira_data, context)
+        print("   [closed_loop] 调用 LLM...", flush=True)
         context.increment_llm_calls()
         response = self.llm_client.generate(prompt, max_tokens=800)
+        print("   [closed_loop] LLM 响应完成", flush=True)
 
         # 清理输出
+        print("   [closed_loop] 清理输出...", flush=True)
         response = clean_llm_output(response)
 
         # 3. 解析响应
+        print("   [closed_loop] 解析响应...", flush=True)
         result = self._parse_response(response)
         result['is_closed_by_status'] = is_closed_by_status
 
         # 4. 综合判断
+        print("   [closed_loop] 综合判断...", flush=True)
         result['is_closed'] = (
             is_closed_by_status and
             result.get('has_root_cause', False) and
@@ -59,6 +68,7 @@ class ClosedLoopChecker(BaseAnalyzer):
             result.get('has_verification', False)
         )
 
+        print("   [closed_loop] 分析完成", flush=True)
         return result
 
     def _build_prompt(self, jira_data: Dict[str, Any], context: AnalysisContext) -> str:
