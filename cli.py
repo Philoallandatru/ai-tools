@@ -1178,6 +1178,20 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
         analyzer.register_analyzer(ClosedLoopChecker(llm_client))
         analyzer.register_analyzer(CommentAnalyzer(llm_client))
         analyzer.register_analyzer(ActionRecommender(llm_client))
+
+        # 5. 注册自定义分析器
+        from crawler.analyzers.custom_analyzer import CustomAnalyzer
+        custom_analyzers_config = config.get('custom_analyzers', [])
+        if custom_analyzers_config:
+            click.echo(f"📋 注册 {len(custom_analyzers_config)} 个自定义分析器...")
+            for custom_config in custom_analyzers_config:
+                if not custom_config.get('enabled', True):
+                    continue
+
+                custom_analyzer = CustomAnalyzer(custom_config, llm_client)
+                analyzer.register_analyzer(custom_analyzer)
+                click.echo(f"   ✓ {custom_config['name']}")
+
         click.echo(f"   已注册 {len(analyzer.pipeline)} 个分析器")
         click.echo("")
 

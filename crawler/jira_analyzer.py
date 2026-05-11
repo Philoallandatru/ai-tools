@@ -196,6 +196,27 @@ class JiraDeepAnalyzer:
                 lines.append(self._format_section(key, result))
                 lines.append("")
 
+        # 自定义分析器结果
+        custom_results = []
+        for analyzer_key, result in context.results.items():
+            if analyzer_key.startswith('custom_'):
+                custom_results.append((analyzer_key, result))
+
+        if custom_results:
+            lines.append("---")
+            lines.append("")
+            lines.append("## 🔧 自定义分析")
+            lines.append("")
+
+            for analyzer_key, result in custom_results:
+                analyzer_name = result.get('analyzer_name', analyzer_key)
+                analysis_result = result.get('result', '')
+
+                lines.append(f"### {analyzer_name}")
+                lines.append("")
+                lines.append(analysis_result)
+                lines.append("")
+
         # 元数据
         if context.metadata['warnings']:
             lines.append("## ⚠️ 警告")

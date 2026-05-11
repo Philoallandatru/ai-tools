@@ -1,0 +1,37 @@
+{
+  "keywords": [
+    "SSD1250",
+    "Sanitize",
+    "Block Erase",
+    "NVM Reset",
+    "NVMe",
+    "PCIe",
+    "CC.EN",
+    "Log Page",
+    "Debug FW",
+    "M.2"
+  ],
+  "wiki_concepts": [
+    {
+      "keyword": "Sanitize",
+      "content": "---\ntitle: Controller Level Reset对Sanitize状态的影响\nsummary: Controller Level Reset可能导致Sanitize操作不包含Media Verification状态和Post-Verification Deallocation状态，影响操作完整性\nsources:\n  - nvme-744-Elements-of-Sanitize-Operations.md\nkind: concept\ncreatedAt: \"2026-05-08T19:00:12.248Z\"\nupdatedAt: \"2026-05-08T19:00:12.248Z\"\ntags:\n  - nvme\n  - reset\n  - sanitize\naliases:\n  - controller-level-reset对sanitize状态的影响\n  - CLR\nconfidence: 0.85\nprovenanceState: extracted\n---\n\n<think>The user wants me to write a wiki page about \"Controller Level Reset对Sanitize状态的影响\" (Impact of Controller Level Reset on Sanitize State). I need to extract information from the provided source material.\n\nLooking at the source material in `nvme-744-Elements-of-Sanitize-Operations.md`, I can find relevant information about how Controller Level",
+      "source": "filename_partial",
+      "file": "controller-level-reset对sanitize状态的影响.md",
+      "llm_analysis": {
+        "score": 8,
+        "reason": "高相关性。Jira Issue 描述了在 SSD1250 的 Sanitize（块擦除）操作进行中下发 NVM Subsystem Reset 导致设备进入只读模式的故障，这直接涉及 Reset 对 Sanitize 状态的影响；而 Wiki 概念标题和内容明确讨论了 Controller Level Reset 如何影响 Sanitize 操作的完整性（如跳过验证阶段），两者在技术原理和故障现象上高度一致。"
+      }
+    },
+    {
+      "keyword": "NVMe",
+      "content": "---\ntitle: Controller Attributes与NVMe命令集的关系\nsummary: CAP结构体定义控制器支持的NVMe命令集属性，包括I/O命令集选择(命令集字段)和Controller Attributes结构体的从属关系\nsources:\n  - nvme-443-Common-Identify-Data-Structures.md\nkind: concept\ncreatedAt: \"2026-05-08T13:37:41.664Z\"\nupdatedAt: \"2026-05-08T13:37:41.664Z\"\ntags:\n  - nvme\n  - command-set\n  - controller\naliases:\n  - controller-attributes与nvme命令集的关系\nconfidence: 0.75\nprovenanceState: merged\n---\n\n<think>The user wants me to write a wiki page about \"Controller Attributes与NVMe命令集的关系\" (The Relationship between Controller Attributes and NVMe Command Sets).\n\nLooking at the source materials provided, I need to find information about Controller Attributes and their relationship to the NVMe command set.\n\nThe source materials include:\n1. nvme-363-Firmware-Commit-command.md - about Firmwar",
+      "source": "filename_partial",
+      "file": "controller-attributes与nvme命令集的关系.md",
+      "llm_analysis": {
+        "score": 6,
+        "reason": "Jira Issue 描述的问题涉及 SSD1250 在 Sanitize（块擦除）操作期间下发 NVM Reset 导致设备进入只读模式，这属于 NVMe 控制器行为与状态机管理的问题。虽然 Wiki 概念提到了 Controller Attributes（CAP 结构体）及其对命令集的支持属性，这与问题中的‘控制器配置写入’有一定关联，但 Wiki 内容未涵盖‘NVM Reset’、‘只读模式’或‘Sanitize 操作期间的状态变化’等核心机制。因此，两者仅在中层概念上相关（即都涉及控制器属性和 NVMe 命令），但在具体故障场景和复位行为方面相关性较弱。"
+      }
+    }
+  ],
+  "related_sources": []
+}
