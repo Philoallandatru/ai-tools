@@ -19,8 +19,16 @@ def clean_llm_output(text: str) -> str:
         return text
 
     # 1. 移除 <think>...</think> 标签及其内容（支持多行和嵌套）
-    while '<think>' in text.lower():
+    # 使用循环处理嵌套标签，但限制最大迭代次数防止无限循环
+    max_iterations = 10
+    iteration = 0
+    while '<think>' in text.lower() and iteration < max_iterations:
+        prev_text = text
         text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        # 如果文本没有变化，说明正则没有匹配到，跳出循环
+        if text == prev_text:
+            break
+        iteration += 1
 
     # 2. 移除单独的 </think> 或 <think> 标签
     text = re.sub(r'</think>|<think>', '', text, flags=re.IGNORECASE)
