@@ -79,3 +79,37 @@ def extract_structured_response(text: str, keys: list) -> dict:
             result[key] = match.group(1).strip()
 
     return result
+
+
+def extract_json_from_llm(response: str, expected_type: str = 'auto'):
+    """
+    从 LLM 响应中提取 JSON（对象或数组）
+
+    Args:
+        response: LLM 响应文本
+        expected_type: 期望的类型 ('object', 'array', 'auto')
+
+    Returns:
+        解析后的 JSON 数据，失败返回 None
+    """
+    import json
+
+    # 尝试提取 JSON 对象
+    if expected_type in ('object', 'auto'):
+        json_match = re.search(r'\{[^}]+\}', response)
+        if json_match:
+            try:
+                return json.loads(json_match.group(0))
+            except:
+                pass
+
+    # 尝试提取 JSON 数组
+    if expected_type in ('array', 'auto'):
+        json_match = re.search(r'\[([^\]]+)\]', response)
+        if json_match:
+            try:
+                return json.loads(json_match.group(0))
+            except:
+                pass
+
+    return None

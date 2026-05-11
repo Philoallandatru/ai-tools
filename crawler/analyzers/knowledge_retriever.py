@@ -5,21 +5,31 @@
 import subprocess
 import re
 import json
-import hashlib
+import os
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.searcher import ContentSearcher
 from crawler.llm_client import BaseLLMClient
-from crawler.llm_utils import clean_llm_output
+from crawler.llm_utils import clean_llm_output, extract_json_from_llm
 
 
 class KnowledgeRetriever(BaseAnalyzer):
     """知识检索分析器 - 双重检索策略（Wiki + 源文件搜索）+ LLM 相关性分析"""
 
-    # 分析器版本号，用于缓存失效
     VERSION = "1.0.0"
+
+    # 常量定义
+    MAX_DESCRIPTION_LENGTH = 500
+    MAX_KEYWORDS = 10
+    KEYWORD_EXTRACTION_MAX_TOKENS = 200
+    CONCEPT_ANALYSIS_MAX_TOKENS = 300
+    WIKI_QUERY_TIMEOUT = 30
+    WIKI_CONTENT_PREVIEW = 1000
+    MAX_THREAD_WORKERS = 3
+    MIN_KEYWORD_LENGTH = 2
+    MAX_KEYWORD_LENGTH = 20
 
     def __init__(self, source_dir: str = './sources', wiki_dir: str = './wiki', llm_client: Optional[BaseLLMClient] = None, cache_dir: str = './.cache'):
         """
@@ -67,13 +77,14 @@ class KnowledgeRetriever(BaseAnalyzer):
         """
         cache_file = self._get_cache_key(jira_key)
         try:
-            if Path(cache_file).exists():
-                with open(cache_file, 'r', encoding='utf-8') as f:
-                    print(f"   [knowledge] 使用缓存结果")
-                    return json.load(f)
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                print(f"   [knowledge] 使用缓存结果")
+                return json.load(f)
+        except FileNotFoundError:
+            return None
         except Exception as e:
             print(f"   [knowledge] 缓存加载失败: {str(e)}")
-        return None
+            return None
 
     def _save_cache(self, jira_key: str, result: Dict[str, Any]) -> None:
         """
@@ -148,7 +159,7 @@ class KnowledgeRetriever(BaseAnalyzer):
 
         # 使用 LLM 提取关键词
         title = jira_data.get('title', '')
-        description = jira_data.get('description', '')[:500]
+        description = jira_data.get('description', '')[:self.MAX_DESCRIPTION_LENGTH]
 
         prompt = f"""从以下 Jira Issue 中提取 5-10 个最重要的技术关键词，用于搜索相关文档。
 
@@ -166,16 +177,14 @@ class KnowledgeRetriever(BaseAnalyzer):
 
         try:
             print(f"   [knowledge] 使用 LLM 提取关键词...")
-            response = self.llm_client.generate(prompt, max_tokens=200)
+            response = self.llm_client.generate(prompt, max_tokens=self.KEYWORD_EXTRACTION_MAX_TOKENS)
 
-            # 解析 JSON 数组
-            import json
-            json_match = re.search(r'\[([^\]]+)\]', response)
-            if json_match:
-                keywords = json.loads(json_match.group(0))
+            # 使用统一的 JSON 提取函数
+            keywords = extract_json_from_llm(response, expected_type='array')
+            if keywords:
                 # 过滤和清理
-                keywords = [k.strip() for k in keywords if isinstance(k, str) and 2 <= len(k.strip()) <= 20]
-                return keywords[:10]
+                keywords = [k.strip() for k in keywords if isinstance(k, str) and self.MIN_KEYWORD_LENGTH <= len(k.strip()) <= self.MAX_KEYWORD_LENGTH]
+                return keywords[:self.MAX_KEYWORDS]
         except Exception as e:
             print(f"   [knowledge] LLM 关键词提取失败，回退到正则表达式: {str(e)}")
 
@@ -265,15 +274,15 @@ class KnowledgeRetriever(BaseAnalyzer):
                 capture_output=True,
                 text=True,
                 encoding='utf-8',
-                timeout=30,  # 30秒超时
-                cwd=str(self.wiki_dir.parent)  # 在项目根目录执行
+                timeout=self.WIKI_QUERY_TIMEOUT,
+                cwd=str(self.wiki_dir.parent)
             )
 
             if result.returncode == 0 and result.stdout.strip():
                 # 成功获取回答
                 results.append({
                     'keyword': ', '.join(keywords[:3]),
-                    'content': result.stdout.strip()[:1000],
+                    'content': result.stdout.strip()[:self.WIKI_CONTENT_PREVIEW],
                     'source': 'llm-wiki-compiler'
                 })
                 return results
@@ -381,14 +390,11 @@ class KnowledgeRetriever(BaseAnalyzer):
         Returns:
             增强了相关性分析的概念
         """
-        import json
-        import re
-
         # 构建结构化 prompt
         prompt = f"""请分析以下 Wiki 概念与 Jira Issue 的相关性：
 
 Jira Issue: [{jira_data['key']}] {jira_data['title']}
-描述: {jira_data['description'][:500]}
+描述: {jira_data['description'][:self.MAX_DESCRIPTION_LENGTH]}
 
 Wiki 概念: {concept['keyword']}
 内容: {concept['content'][:600]}
@@ -406,21 +412,19 @@ Wiki 概念: {concept['keyword']}
 
             # 调用 LLM
             context.increment_llm_calls()
-            response = self.llm_client.generate(prompt, max_tokens=300)
+            response = self.llm_client.generate(prompt, max_tokens=self.CONCEPT_ANALYSIS_MAX_TOKENS)
 
-            # 尝试解析 JSON
+            # 使用统一的 JSON 提取函数
+            data = extract_json_from_llm(response, expected_type='object')
+
             score = 0
             reason = '无法分析'
 
-            # 方法1: 尝试直接解析 JSON
-            try:
-                json_match = re.search(r'\{[^}]+\}', response)
-                if json_match:
-                    data = json.loads(json_match.group(0))
-                    score = int(data.get('score', 0))
-                    reason = data.get('reason', '无法分析')
-            except:
-                # 方法2: 尝试提取键值对
+            if data:
+                score = int(data.get('score', 0))
+                reason = data.get('reason', '无法分析')
+            else:
+                # 回退：尝试提取键值对
                 score_match = re.search(r'["\']?score["\']?\s*[:：]\s*(\d+)', response, re.IGNORECASE)
                 reason_match = re.search(r'["\']?reason["\']?\s*[:：]\s*["\']?([^"\'}\n]+)', response, re.IGNORECASE)
 
@@ -463,8 +467,11 @@ Wiki 概念: {concept['keyword']}
 
         enhanced_results = []
 
+        # 动态调整线程池大小
+        max_workers = min(len(wiki_results), self.MAX_THREAD_WORKERS, os.cpu_count() or 1)
+
         # 使用线程池并行处理
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # 提交所有任务
             future_to_concept = {
                 executor.submit(
