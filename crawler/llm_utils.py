@@ -18,27 +18,32 @@ def clean_llm_output(text: str) -> str:
     if not text:
         return text
 
-    # 1. 移除 <think>...</think> 标签及其内容
-    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    # 1. 移除 <think>...</think> 标签及其内容（支持多行和嵌套）
+    while '<think>' in text.lower():
+        text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
 
-    # 2. 移除单独的 </think> 标签
-    text = re.sub(r'</think>', '', text, flags=re.IGNORECASE)
+    # 2. 移除单独的 </think> 或 <think> 标签
+    text = re.sub(r'</think>|<think>', '', text, flags=re.IGNORECASE)
 
     # 3. 移除 JSON 代码块（如果不是预期格式）
-    # 保留实际的分析内容，移除格式说明
     text = re.sub(r'```json\s*\{[^}]*\}\s*```', '', text, flags=re.DOTALL)
 
-    # 4. 移除重复的提示词
-    text = re.sub(r'请从以下.*?维度分析.*?\n', '', text, flags=re.MULTILINE)
-    text = re.sub(r'请.*?分析.*?：\n', '', text, flags=re.MULTILINE)
+    # 4. 移除重复的提示词（更强力的匹配）
+    text = re.sub(r'(请从以下.*?维度分析.*?\n)+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'(请.*?分析.*?：\n)+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'(1\.\s*时间线位置.*?\n2\.\s*关键决策.*?\n3\.\s*合理性评估.*?\n)+', '', text, flags=re.MULTILINE)
 
-    # 5. 移除 "Thinking Process:" 及其后续内容（如果在开头）
-    text = re.sub(r'^Thinking Process:.*?(?=\n\n|\Z)', '', text, flags=re.DOTALL | re.MULTILINE)
+    # 5. 移除 "Thinking Process:" 及其后续内容
+    text = re.sub(r'Thinking Process:.*?(?=\n\n[^T]|\Z)', '', text, flags=re.DOTALL | re.MULTILINE)
 
-    # 6. 移除多余的空行（超过2个连续空行）
+    # 6. 移除格式说明
+    text = re.sub(r'请.*?格式.*?输出.*?\n', '', text, flags=re.MULTILINE)
+    text = re.sub(r'请仅使用.*?回答.*?\n', '', text, flags=re.MULTILINE)
+
+    # 7. 移除多余的空行（超过2个连续空行）
     text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
 
-    # 7. 移除开头和结尾的空白
+    # 8. 移除开头和结尾的空白
     text = text.strip()
 
     return text
