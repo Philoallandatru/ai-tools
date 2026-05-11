@@ -112,7 +112,7 @@ class LLMStudioClient(BaseLLMClient):
                     "temperature": 0.7
                 },
                 headers={"Content-Type": "application/json; charset=utf-8"},
-                timeout=60  # 减少到 60 秒
+                timeout=120  # 增加到 120 秒
             )
             response.raise_for_status()
             response.encoding = 'utf-8'  # 确保响应使用 UTF-8 解码
@@ -121,7 +121,7 @@ class LLMStudioClient(BaseLLMClient):
             return result['choices'][0]['text'].strip()
 
         except requests.Timeout:
-            raise RuntimeError(f"LLMStudio API 调用超时（60秒）")
+            raise RuntimeError(f"LLMStudio API 调用超时（120秒）")
         except requests.RequestException as e:
             raise RuntimeError(f"LLMStudio API 调用失败: {e}")
 
