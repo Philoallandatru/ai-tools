@@ -279,6 +279,7 @@ class JiraDeepAnalyzer:
                 keyword = concept['keyword']
                 source = concept.get('source', 'unknown')
                 file_name = concept.get('file', '')
+                llm_analysis = concept.get('llm_analysis', '')
 
                 # 显示关键词和来源
                 if file_name:
@@ -286,8 +287,14 @@ class JiraDeepAnalyzer:
                 else:
                     lines.append(f"**{keyword}**:")
 
+                # 显示概念内容
                 lines.append(f"{concept['content'][:500]}...")
                 lines.append("")
+
+                # 如果有 LLM 分析，显示相关性分析
+                if llm_analysis:
+                    lines.append(f"*相关性分析*: {llm_analysis}")
+                    lines.append("")
 
         related_sources = result.get('related_sources', [])
         if related_sources:

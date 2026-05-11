@@ -4,27 +4,31 @@
 
 import subprocess
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pathlib import Path
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.searcher import ContentSearcher
+from crawler.llm_client import BaseLLMClient
+from crawler.llm_utils import clean_llm_output
 
 
 class KnowledgeRetriever(BaseAnalyzer):
-    """知识检索分析器 - 双重检索策略（Wiki + 源文件搜索）"""
+    """知识检索分析器 - 双重检索策略（Wiki + 源文件搜索）+ LLM 相关性分析"""
 
-    def __init__(self, source_dir: str = './sources', wiki_dir: str = './wiki'):
+    def __init__(self, source_dir: str = './sources', wiki_dir: str = './wiki', llm_client: Optional[BaseLLMClient] = None):
         """
         初始化知识检索器
 
         Args:
             source_dir: 源文件目录
             wiki_dir: Wiki 目录
+            llm_client: LLM 客户端（可选，用于分析概念相关性）
         """
         self.source_dir = Path(source_dir)
         self.wiki_dir = Path(wiki_dir)
         self.searcher = ContentSearcher(str(self.source_dir))
+        self.llm_client = llm_client
 
     def get_name(self) -> str:
         return "knowledge"
@@ -46,7 +50,11 @@ class KnowledgeRetriever(BaseAnalyzer):
         # 2. Wiki 检索
         wiki_results = self._query_wiki(keywords)
 
-        # 3. 源文件搜索
+        # 3. 如果有 LLM 客户端，分析概念相关性
+        if self.llm_client and wiki_results:
+            wiki_results = self._analyze_concept_relevance(jira_data, wiki_results, context)
+
+        # 4. 源文件搜索
         source_results = self._search_sources(keywords)
 
         return {
@@ -239,6 +247,59 @@ class KnowledgeRetriever(BaseAnalyzer):
                 continue
 
         return results
+
+    def _analyze_concept_relevance(self, jira_data: Dict[str, Any], wiki_results: List[Dict[str, str]], context: AnalysisContext) -> List[Dict[str, str]]:
+        """
+        使用 LLM 分析检索到的概念与 Jira issue 的相关性
+
+        Args:
+            jira_data: Jira 数据
+            wiki_results: Wiki 检索结果
+            context: 分析上下文
+
+        Returns:
+            增强了相关性分析的 Wiki 结果
+        """
+        enhanced_results = []
+
+        for concept in wiki_results[:3]:  # 只分析前 3 个概念，避免过多 LLM 调用
+            # 构建 prompt
+            prompt = f"""请分析以下 Wiki 概念与 Jira Issue 的相关性：
+
+Jira Issue: [{jira_data['key']}] {jira_data['title']}
+描述: {jira_data['description'][:500]}
+
+Wiki 概念: {concept['keyword']}
+内容: {concept['content'][:600]}
+
+请简要说明：
+1. 这个概念与该 Issue 的相关性（高/中/低）
+2. 为什么相关或不相关（1-2句话）
+3. 这个概念对理解该 Issue 有什么帮助
+
+请用简洁的中文回答，不超过 150 字。"""
+
+            try:
+                # 调用 LLM
+                context.increment_llm_calls()
+                response = self.llm_client.generate(prompt, max_tokens=300)
+                response = clean_llm_output(response)
+
+                # 添加 LLM 分析结果
+                enhanced_concept = concept.copy()
+                enhanced_concept['llm_analysis'] = response.strip()
+                enhanced_results.append(enhanced_concept)
+
+            except Exception as e:
+                # LLM 调用失败，保留原始概念
+                enhanced_results.append(concept)
+                context.add_warning(f"概念 '{concept['keyword']}' 的 LLM 分析失败: {str(e)}")
+
+        # 添加未分析的概念（如果有超过 3 个）
+        if len(wiki_results) > 3:
+            enhanced_results.extend(wiki_results[3:])
+
+        return enhanced_results
 
     def _search_sources(self, keywords: List[str]) -> List[Dict[str, Any]]:
         """
