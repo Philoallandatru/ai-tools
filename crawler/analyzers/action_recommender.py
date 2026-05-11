@@ -132,6 +132,16 @@ Issue: [{jira_data['key']}] {jira_data['title']}
         """
         import re
 
+        # 额外清理：移除代码块标记
+        response = re.sub(r'^```\s*\n', '', response, flags=re.MULTILINE)
+        response = re.sub(r'\n```\s*$', '', response, flags=re.MULTILINE)
+        response = re.sub(r'```', '', response)
+
+        # 移除占位符行（包含 [具体建议] 的行）
+        lines = response.split('\n')
+        cleaned_lines = [line for line in lines if '[具体建议]' not in line]
+        response = '\n'.join(cleaned_lines)
+
         result = {
             'short_term': [],
             'medium_term': [],
@@ -139,27 +149,27 @@ Issue: [{jira_data['key']}] {jira_data['title']}
             'raw_response': response
         }
 
-        # 提取短期行动
+        # 提取短期行动（支持带括号的时间说明）
         short_match = re.search(
-            r'短期行动[：:](.+?)(?=中期行动|长期行动|$)',
+            r'短期行动[^：:]*[：:](.+?)(?=中期行动|长期行动|$)',
             response,
             re.DOTALL | re.IGNORECASE
         )
         if short_match:
             result['short_term'] = self._extract_action_items(short_match.group(1))
 
-        # 提取中期行动
+        # 提取中期行动（支持带括号的时间说明）
         medium_match = re.search(
-            r'中期行动[：:](.+?)(?=长期行动|$)',
+            r'中期行动[^：:]*[：:](.+?)(?=长期行动|$)',
             response,
             re.DOTALL | re.IGNORECASE
         )
         if medium_match:
             result['medium_term'] = self._extract_action_items(medium_match.group(1))
 
-        # 提取长期行动
+        # 提取长期行动（支持带括号的时间说明）
         long_match = re.search(
-            r'长期行动[：:](.+?)$',
+            r'长期行动[^：:]*[：:](.+?)$',
             response,
             re.DOTALL | re.IGNORECASE
         )
