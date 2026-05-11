@@ -65,7 +65,57 @@ class KnowledgeRetriever(BaseAnalyzer):
 
     def _extract_keywords(self, jira_data: Dict[str, Any]) -> List[str]:
         """
-        从 Jira 数据中提取关键词
+        从 Jira 数据中提取关键词（使用 LLM 提取技术关键词）
+
+        Args:
+            jira_data: Jira 数据
+
+        Returns:
+            关键词列表
+        """
+        # 如果没有 LLM 客户端，回退到正则表达式提取
+        if not self.llm_client:
+            return self._extract_keywords_regex(jira_data)
+
+        # 使用 LLM 提取关键词
+        title = jira_data.get('title', '')
+        description = jira_data.get('description', '')[:500]
+
+        prompt = f"""从以下 Jira Issue 中提取 5-10 个最重要的技术关键词，用于搜索相关文档。
+
+标题: {title}
+描述: {description}
+
+要求：
+1. 提取技术术语、产品名称、协议名称、组件名称等
+2. 优先提取专有名词和缩写（如 NVMe, SSD, PCIe）
+3. 忽略通用词汇（如 Test, Demo, Issue）
+4. 每个关键词 2-20 个字符
+
+请以 JSON 数组格式返回：
+["关键词1", "关键词2", "关键词3"]"""
+
+        try:
+            print(f"   [knowledge] 使用 LLM 提取关键词...")
+            response = self.llm_client.generate(prompt, max_tokens=200)
+
+            # 解析 JSON 数组
+            import json
+            json_match = re.search(r'\[([^\]]+)\]', response)
+            if json_match:
+                keywords = json.loads(json_match.group(0))
+                # 过滤和清理
+                keywords = [k.strip() for k in keywords if isinstance(k, str) and 2 <= len(k.strip()) <= 20]
+                return keywords[:10]
+        except Exception as e:
+            print(f"   [knowledge] LLM 关键词提取失败，回退到正则表达式: {str(e)}")
+
+        # 失败时回退到正则表达式
+        return self._extract_keywords_regex(jira_data)
+
+    def _extract_keywords_regex(self, jira_data: Dict[str, Any]) -> List[str]:
+        """
+        使用正则表达式提取关键词（回退方案）
 
         Args:
             jira_data: Jira 数据
