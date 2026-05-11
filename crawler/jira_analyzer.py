@@ -256,9 +256,37 @@ class JiraDeepAnalyzer:
         if wiki_concepts:
             lines.append("### Wiki 概念")
             lines.append("")
+
+            # 统计搜索策略
+            strategy_counts = {}
             for concept in wiki_concepts:
-                lines.append(f"**{concept['keyword']}**:")
-                lines.append(f"{concept['content'][:300]}...")
+                source = concept.get('source', 'unknown')
+                strategy_counts[source] = strategy_counts.get(source, 0) + 1
+
+            # 显示搜索策略信息
+            if strategy_counts:
+                strategy_names = {
+                    'llm-wiki-compiler': 'LLM 查询',
+                    'filename_exact': '文件名精确匹配',
+                    'filename_partial': '文件名部分匹配',
+                    'content_match': '内容匹配'
+                }
+                strategy_info = ', '.join([f"{strategy_names.get(k, k)}({v})" for k, v in strategy_counts.items()])
+                lines.append(f"*检索策略: {strategy_info}*")
+                lines.append("")
+
+            for concept in wiki_concepts:
+                keyword = concept['keyword']
+                source = concept.get('source', 'unknown')
+                file_name = concept.get('file', '')
+
+                # 显示关键词和来源
+                if file_name:
+                    lines.append(f"**{keyword}** (`{file_name}`):")
+                else:
+                    lines.append(f"**{keyword}**:")
+
+                lines.append(f"{concept['content'][:500]}...")
                 lines.append("")
 
         related_sources = result.get('related_sources', [])

@@ -88,7 +88,11 @@ class KnowledgeRetriever(BaseAnalyzer):
 
     def _query_wiki(self, keywords: List[str]) -> List[Dict[str, str]]:
         """
-        查询 Wiki 概念 - 直接搜索本地 wiki 文件
+        查询 Wiki 概念 - 使用多种策略检索相关概念
+
+        策略优先级：
+        1. 尝试使用 npx llm-wiki-compiler query（需要 LLM API）
+        2. 回退到本地文件搜索（文件名 + 内容匹配）
 
         Args:
             keywords: 关键词列表
@@ -99,23 +103,138 @@ class KnowledgeRetriever(BaseAnalyzer):
         if not self.wiki_dir.exists():
             return []
 
-        results = []
-        concepts_dir = self.wiki_dir / 'concepts'
+        # 策略 1: 尝试使用 llm-wiki-compiler query
+        # 注意：这需要配置 LLM API，如果失败会回退到本地搜索
+        query_results = self._try_llmwiki_query(keywords)
+        if query_results:
+            return query_results
 
+        # 策略 2: 回退到本地文件搜索
+        return self._local_wiki_search(keywords)
+
+    def _try_llmwiki_query(self, keywords: List[str]) -> List[Dict[str, str]]:
+        """
+        尝试使用 llm-wiki-compiler query 命令
+
+        注意：此命令会调用 LLM API 来回答问题，不是简单的检索。
+        如果 API 配置有问题或超时，会返回空列表触发回退。
+
+        Args:
+            keywords: 关键词列表
+
+        Returns:
+            查询结果列表，失败返回空列表
+        """
+        results = []
+
+        # 合并关键词为查询问题
+        query = f"什么是 {', '.join(keywords[:3])}？"
+
+        try:
+            # 使用 npx llm-wiki-compiler query
+            cmd = ["npx", "llm-wiki-compiler", "query", query]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                timeout=30,  # 30秒超时
+                cwd=str(self.wiki_dir.parent)  # 在项目根目录执行
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                # 成功获取回答
+                results.append({
+                    'keyword': ', '.join(keywords[:3]),
+                    'content': result.stdout.strip()[:1000],
+                    'source': 'llm-wiki-compiler'
+                })
+                return results
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+            # 任何失败都静默回退到本地搜索
+            pass
+
+        return []
+
+    def _local_wiki_search(self, keywords: List[str]) -> List[Dict[str, str]]:
+        """
+        本地 Wiki 文件搜索 - 文件名和内容匹配
+
+        改进的搜索策略：
+        1. 文件名完全匹配（优先级最高）
+        2. 文件名部分匹配
+        3. 文件内容匹配
+
+        Args:
+            keywords: 关键词列表
+
+        Returns:
+            搜索结果列表
+        """
+        concepts_dir = self.wiki_dir / 'concepts'
         if not concepts_dir.exists():
             return []
 
+        results = []
+        matched_files = set()  # 避免重复
+
         for keyword in keywords[:5]:
+            keyword_lower = keyword.lower()
+
             try:
+                # 策略 1: 文件名完全匹配
+                exact_match = concepts_dir / f"{keyword_lower}.md"
+                if exact_match.exists() and exact_match not in matched_files:
+                    with open(exact_match, 'r', encoding='utf-8') as f:
+                        content = f.read(1000)
+                    results.append({
+                        'keyword': keyword,
+                        'content': content.strip()[:800],
+                        'source': 'filename_exact',
+                        'file': exact_match.name
+                    })
+                    matched_files.add(exact_match)
+                    continue
+
+                # 策略 2: 文件名部分匹配
                 for md_file in concepts_dir.glob('*.md'):
-                    if keyword.lower() in md_file.stem.lower():
+                    if md_file in matched_files:
+                        continue
+
+                    if keyword_lower in md_file.stem.lower():
                         with open(md_file, 'r', encoding='utf-8') as f:
-                            content = f.read(500)
+                            content = f.read(1000)
                         results.append({
                             'keyword': keyword,
-                            'content': content.strip()[:500]
+                            'content': content.strip()[:800],
+                            'source': 'filename_partial',
+                            'file': md_file.name
                         })
+                        matched_files.add(md_file)
                         break
+
+                # 策略 3: 内容匹配（如果前两种都没找到）
+                if len([r for r in results if r['keyword'] == keyword]) == 0:
+                    for md_file in list(concepts_dir.glob('*.md'))[:50]:  # 限制搜索范围
+                        if md_file in matched_files:
+                            continue
+
+                        try:
+                            with open(md_file, 'r', encoding='utf-8') as f:
+                                content = f.read(2000)
+
+                            if keyword_lower in content.lower():
+                                results.append({
+                                    'keyword': keyword,
+                                    'content': content.strip()[:800],
+                                    'source': 'content_match',
+                                    'file': md_file.name
+                                })
+                                matched_files.add(md_file)
+                                break
+                        except Exception:
+                            continue
+
             except Exception:
                 continue
 
