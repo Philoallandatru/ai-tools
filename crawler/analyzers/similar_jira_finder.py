@@ -41,10 +41,15 @@ class SimilarJiraFinder(BaseAnalyzer):
         Returns:
             包含相似 Issues 列表的字典
         """
+        import sys
+
         # 1. 获取所有 Jira Issues
+        print("   [similar_jira] 加载所有 issues...", flush=True)
         all_issues = self._load_all_issues()
+        print(f"   [similar_jira] 找到 {len(all_issues)} 个 issues", flush=True)
 
         # 2. 计算相似度
+        print("   [similar_jira] 计算相似度...", flush=True)
         similarities = []
         current_key = jira_data['key']
 
@@ -66,14 +71,19 @@ class SimilarJiraFinder(BaseAnalyzer):
         # 3. 排序并返回 Top K
         similarities.sort(key=lambda x: x['similarity_score'], reverse=True)
         top_similar = similarities[:self.top_k]
+        print(f"   [similar_jira] 找到 {len(top_similar)} 个相似 issues", flush=True)
 
         # 4. 使用 LLM 分析相关性（如果有 LLM 客户端）
         if self.llm_client and top_similar:
-            for similar in top_similar:
+            print(f"   [similar_jira] 开始 LLM 相关性分析（{len(top_similar)} 个）...", flush=True)
+            for i, similar in enumerate(top_similar, 1):
+                print(f"   [similar_jira] 分析 {i}/{len(top_similar)}: {similar['key']}", flush=True)
                 analysis = self._analyze_relevance(jira_data, similar, context)
                 similar['relevance_analysis'] = analysis
                 context.increment_llm_calls()
+                print(f"   [similar_jira] 完成 {i}/{len(top_similar)}", flush=True)
 
+        print("   [similar_jira] 分析完成", flush=True)
         return {
             'similar_issues': top_similar,
             'total_candidates': len(similarities)
@@ -183,6 +193,7 @@ class SimilarJiraFinder(BaseAnalyzer):
         Returns:
             相关性分析文本
         """
+        import sys
         # 获取根因分析结果
         root_cause = context.get_result('root_cause')
         root_cause_text = ""
@@ -207,9 +218,15 @@ class SimilarJiraFinder(BaseAnalyzer):
 """
 
         try:
+            print(f"   [similar_jira] 调用 LLM (prompt 长度: {len(prompt)} 字符)...", flush=True)
+            sys.stdout.flush()
             response = self.llm_client.generate(prompt, max_tokens=300)
+            print(f"   [similar_jira] LLM 响应完成 (长度: {len(response)} 字符)", flush=True)
+            sys.stdout.flush()
             # 清理响应（移除 <think> 标签等）
             response = clean_llm_output(response)
             return response.strip()
         except Exception as e:
+            print(f"   [similar_jira] LLM 调用失败: {str(e)}", flush=True)
+            sys.stdout.flush()
             return f"相关性分析失败: {str(e)}"

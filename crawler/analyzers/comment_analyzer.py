@@ -35,7 +35,13 @@ class CommentAnalyzer(BaseAnalyzer):
         Returns:
             包含评论分析结果的字典
         """
+        import sys
+        print(f"[comments] 开始分析评论...")
+        sys.stdout.flush()
+
         comments = jira_data.get('comments', [])
+        print(f"[comments] 找到 {len(comments)} 条评论")
+        sys.stdout.flush()
 
         if not comments:
             return {
@@ -47,12 +53,20 @@ class CommentAnalyzer(BaseAnalyzer):
         # 分析每条评论
         comment_analyses = []
         for i, comment in enumerate(comments[:10], 1):  # 最多分析前 10 条评论
+            print(f"[comments] 分析评论 {i}/{min(len(comments), 10)}...")
+            sys.stdout.flush()
             analysis = self._analyze_single_comment(i, comment, jira_data, context)
+            print(f"[comments] 完成评论 {i}/{min(len(comments), 10)}")
+            sys.stdout.flush()
             comment_analyses.append(analysis)
             context.increment_llm_calls()
 
         # 生成整体摘要
+        print(f"[comments] 生成摘要...")
+        sys.stdout.flush()
         summary = self._generate_summary(comment_analyses, jira_data)
+        print(f"[comments] 分析完成")
+        sys.stdout.flush()
 
         return {
             'has_comments': True,

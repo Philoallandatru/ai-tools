@@ -88,7 +88,7 @@ class KnowledgeRetriever(BaseAnalyzer):
 
     def _query_wiki(self, keywords: List[str]) -> List[Dict[str, str]]:
         """
-        查询 Wiki 概念
+        查询 Wiki 概念 - 直接搜索本地 wiki 文件
 
         Args:
             keywords: 关键词列表
@@ -100,28 +100,23 @@ class KnowledgeRetriever(BaseAnalyzer):
             return []
 
         results = []
+        concepts_dir = self.wiki_dir / 'concepts'
 
-        for keyword in keywords[:5]:  # 最多查询前 5 个关键词
+        if not concepts_dir.exists():
+            return []
+
+        for keyword in keywords[:5]:
             try:
-                # 使用 llm-wiki-compiler 查询
-                result = subprocess.run(
-                    ['npx', 'llm-wiki-compiler', 'query', keyword],
-                    cwd=str(self.wiki_dir.parent),
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                    encoding='utf-8',
-                    shell=True  # Windows 兼容性
-                )
-
-                if result.returncode == 0 and result.stdout.strip():
-                    results.append({
-                        'keyword': keyword,
-                        'content': result.stdout.strip()[:500]  # 限制长度
-                    })
-
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
-                # 如果 Wiki 查询失败，跳过（不影响整体分析）
+                for md_file in concepts_dir.glob('*.md'):
+                    if keyword.lower() in md_file.stem.lower():
+                        with open(md_file, 'r', encoding='utf-8') as f:
+                            content = f.read(500)
+                        results.append({
+                            'keyword': keyword,
+                            'content': content.strip()[:500]
+                        })
+                        break
+            except Exception:
                 continue
 
         return results

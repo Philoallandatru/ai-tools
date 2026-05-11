@@ -48,15 +48,22 @@ class JiraDeepAnalyzer:
             FileNotFoundError: Issue 文件不存在
             RuntimeError: 分析过程中发生错误
         """
+        import sys
         # 1. 加载 Jira 数据
+        print(f"   📄 加载 Jira 数据: {issue_key}", flush=True)
         jira_data = self._load_jira_data(issue_key)
+        print(f"   ✓ 数据加载完成", flush=True)
 
         # 2. 创建分析上下文
+        print(f"   🔧 创建分析上下文", flush=True)
         context = AnalysisContext(issue_key)
+        print(f"   ✓ 上下文创建完成", flush=True)
 
         # 3. 执行分析流水线
+        print(f"   🚀 开始执行 {len(self.pipeline)} 个分析器", flush=True)
         for analyzer in self.pipeline:
             analyzer_name = analyzer.get_name()
+            print(f"   ▶ 开始执行: {analyzer_name}", flush=True)
             start_time = time.time()
 
             try:
@@ -65,10 +72,12 @@ class JiraDeepAnalyzer:
 
                 duration_ms = (time.time() - start_time) * 1000
                 context.record_timing(analyzer_name, duration_ms)
+                print(f"   ✓ 完成: {analyzer_name} ({duration_ms:.0f}ms)", flush=True)
 
             except Exception as e:
                 error_msg = f"{analyzer_name} 分析失败: {str(e)}"
                 context.add_warning(error_msg)
+                print(f"   ✗ 失败: {analyzer_name} - {str(e)}", flush=True)
                 raise RuntimeError(error_msg) from e
 
         # 4. 生成报告
