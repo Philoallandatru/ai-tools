@@ -108,10 +108,10 @@ uv run python cli.py list-jira --priority Highest
 
 # 3. Jira 深度分析
 # 使用 Mock LLM 分析（测试模式）
-uv run python cli.py analyze-jira KAN-2
+uv run python cli.py analyze-jira KAN-2 --llm-provider mock
 
-# 使用真实 LLM 分析（需要配置 llmstudio）
-uv run python cli.py analyze-jira KAN-2 --llm-provider llmstudio
+# 使用真实 LLM 分析（默认从配置读取，使用 OpenAI-compatible API）
+uv run python cli.py analyze-jira KAN-2
 
 # 4. 文档分析（NEW!）
 # 分析文档并生成需求/测试用例建议报告

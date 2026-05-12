@@ -3,7 +3,7 @@ Unit tests for LLM client factory
 """
 
 import pytest
-from crawler.llm_client import LLMClientFactory, MockLLMClient, LLMStudioClient, BaseLLMClient
+from crawler.llm_client import LLMClientFactory, MockLLMClient, OpenAIClient, BaseLLMClient
 
 
 class TestLLMClientFactory:
@@ -17,10 +17,10 @@ class TestLLMClientFactory:
         assert isinstance(client, MockLLMClient)
         assert isinstance(client, BaseLLMClient)
 
-    def test_create_llmstudio_client(self):
-        """测试创建 LLMStudio 客户端"""
+    def test_create_openai_client(self):
+        """测试创建 OpenAI 客户端"""
         config = {
-            'provider': 'llmstudio',
+            'provider': 'openai',
             'base_url': 'http://localhost:1234/v1',
             'model': 'test-model',
             'max_tokens': 1000,
@@ -28,7 +28,7 @@ class TestLLMClientFactory:
         }
         client = LLMClientFactory.create_from_config(config)
 
-        assert isinstance(client, LLMStudioClient)
+        assert isinstance(client, OpenAIClient)
         assert isinstance(client, BaseLLMClient)
         assert client.base_url == 'http://localhost:1234/v1'
         assert client.model == 'test-model'

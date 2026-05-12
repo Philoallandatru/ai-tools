@@ -12,14 +12,14 @@ if sys.platform == 'win32':
 
 from crawler.llm_client import create_llm_client
 
-def test_llmstudio():
-    print("测试 LLMStudio 连接...")
+def test_openai_api():
+    print("测试 OpenAI-compatible API 连接...")
 
     try:
         # 创建客户端
         client = create_llm_client(
-            'llmstudio',
-            base_url='http://127.0.0.1:1234',
+            'openai',
+            base_url='http://127.0.0.1:1234/v1',
             model='qwen3.5-0.8b'
         )
 
@@ -40,4 +40,4 @@ def test_llmstudio():
         traceback.print_exc()
 
 if __name__ == '__main__':
-    test_llmstudio()
+    test_openai_api()

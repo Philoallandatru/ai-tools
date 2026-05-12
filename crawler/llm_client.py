@@ -120,15 +120,15 @@ class MockLLMClient(BaseLLMClient):
             return f"Mock LLM 响应 (prompt 长度: {len(prompt)} 字符)"
 
 
-class LLMStudioClient(BaseLLMClient):
-    """LLMStudio 客户端 - 连接本地 LLM 服务"""
+class OpenAIClient(BaseLLMClient):
+    """OpenAI-compatible API 客户端 - 支持本地 LLM 服务（Ollama, LM Studio, vLLM, LocalAI 等）和 OpenAI API"""
 
     def __init__(self, base_url: str = "http://127.0.0.1:1234/v1", model: str = "qwen3.5-4b"):
         """
-        初始化 LLMStudio 客户端
+        初始化 OpenAI-compatible 客户端
 
         Args:
-            base_url: LLMStudio 服务地址（应包含 API 版本路径，如 http://127.0.0.1:1234/v1）
+            base_url: API 服务地址（应包含 API 版本路径，如 http://127.0.0.1:1234/v1）
             model: 模型名称
         """
         self.base_url = base_url.rstrip('/')
@@ -136,7 +136,7 @@ class LLMStudioClient(BaseLLMClient):
 
     def generate(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.7) -> str:
         """
-        调用 LLMStudio API 生成文本
+        调用 OpenAI-compatible API 生成文本
 
         Args:
             prompt: 输入提示词
@@ -247,13 +247,13 @@ class LLMStudioClient(BaseLLMClient):
 
                     return text.strip()
                 except requests.RequestException as fallback_error:
-                    raise RuntimeError(f"LLMStudio API 调用失败 (两种端点都失败): {fallback_error}")
+                    raise RuntimeError(f"OpenAI API 调用失败 (两种端点都失败): {fallback_error}")
             else:
-                raise RuntimeError(f"LLMStudio API 调用失败: {e}")
+                raise RuntimeError(f"OpenAI API 调用失败: {e}")
         except requests.Timeout:
-            raise RuntimeError(f"LLMStudio API 调用超时（120秒）")
+            raise RuntimeError(f"OpenAI API 调用超时（120秒）")
         except requests.RequestException as e:
-            raise RuntimeError(f"LLMStudio API 调用失败: {e}")
+            raise RuntimeError(f"OpenAI API 调用失败: {e}")
 
 
 class LLMClientFactory:
@@ -266,9 +266,9 @@ class LLMClientFactory:
 
         Args:
             config: 配置字典，包含以下字段：
-                - provider: str - 提供商类型 ("mock" 或 "llmstudio")
-                - base_url: str - LLMStudio 服务地址（仅 llmstudio 需要）
-                - model: str - 模型名称（仅 llmstudio 需要）
+                - provider: str - 提供商类型 ("mock" 或 "openai")
+                - base_url: str - API 服务地址（仅 openai 需要）
+                - model: str - 模型名称（仅 openai 需要）
                 - max_tokens: int - 最大 token 数（可选）
                 - temperature: float - 温度参数（可选）
 
@@ -280,8 +280,8 @@ class LLMClientFactory:
 
         Example:
             >>> config = {
-            ...     'provider': 'llmstudio',
-            ...     'base_url': 'http://127.0.0.1:1234',
+            ...     'provider': 'openai',
+            ...     'base_url': 'http://127.0.0.1:1234/v1',
             ...     'model': 'qwen3.5-4b'
             ... }
             >>> client = LLMClientFactory.create_from_config(config)
@@ -291,17 +291,17 @@ class LLMClientFactory:
         if provider == 'mock':
             return MockLLMClient()
 
-        elif provider == 'llmstudio':
+        elif provider == 'openai':
             # 验证必需字段
             base_url = config.get('base_url')
             model = config.get('model')
 
             if not base_url:
-                raise ValueError("llmstudio provider requires 'base_url' in config")
+                raise ValueError("openai provider requires 'base_url' in config")
             if not model:
-                raise ValueError("llmstudio provider requires 'model' in config")
+                raise ValueError("openai provider requires 'model' in config")
 
-            return LLMStudioClient(base_url=base_url, model=model)
+            return OpenAIClient(base_url=base_url, model=model)
 
         else:
             raise ValueError(f"不支持的 LLM 提供商: {provider}")
@@ -312,7 +312,7 @@ class LLMClientFactory:
         直接创建 LLM 客户端（向后兼容）
 
         Args:
-            provider: 提供商类型 ("mock" 或 "llmstudio")
+            provider: 提供商类型 ("mock" 或 "openai")
             **kwargs: 传递给客户端的额外参数
 
         Returns:
@@ -320,8 +320,8 @@ class LLMClientFactory:
         """
         if provider == "mock":
             return MockLLMClient()
-        elif provider == "llmstudio":
-            return LLMStudioClient(**kwargs)
+        elif provider == "openai":
+            return OpenAIClient(**kwargs)
         else:
             raise ValueError(f"不支持的 LLM 提供商: {provider}")
 
@@ -331,7 +331,7 @@ def create_llm_client(provider: str = "mock", **kwargs) -> BaseLLMClient:
     工厂函数：创建 LLM 客户端（向后兼容，推荐使用 LLMClientFactory）
 
     Args:
-        provider: 提供商类型 ("mock" 或 "llmstudio")
+        provider: 提供商类型 ("mock" 或 "openai")
         **kwargs: 传递给客户端的额外参数
 
     Returns:

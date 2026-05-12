@@ -93,8 +93,8 @@ def main():
     # 初始化 LLM 客户端
     try:
         llm_client = create_llm_client(
-            provider='llmstudio',
-            base_url='http://127.0.0.1:1234',
+            provider='openai',
+            base_url='http://127.0.0.1:1234/v1',
             model='qwen3.5-4b'
         )
         llm_available = True

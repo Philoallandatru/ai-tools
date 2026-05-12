@@ -1162,7 +1162,7 @@ def export_filtered(doc_type, statuses, today, yesterday, days, output, source_d
 @click.option('--source-dir', default='./sources', help='源文件目录')
 @click.option('--wiki-dir', default='./wiki', help='Wiki 目录')
 @click.option('--output-dir', default='./reports', help='报告输出目录')
-@click.option('--llm-provider', default=None, type=click.Choice(['mock', 'llmstudio']), help='LLM 提供商（默认从配置读取）')
+@click.option('--llm-provider', default=None, type=click.Choice(['mock', 'openai']), help='LLM 提供商（默认从配置读取，openai 表示 OpenAI-compatible API）')
 def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
     """
     深度分析 Jira Issue
@@ -1186,7 +1186,7 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
         # 2. 确定 LLM 提供商（优先使用命令行参数，否则从配置读取）
         llm_config = config.get('llm', {})
         if llm_provider is None:
-            llm_provider = llm_config.get('provider', 'llmstudio')
+            llm_provider = llm_config.get('provider', 'openai')
 
         click.echo(f"   LLM 提供商: {llm_provider}")
 
@@ -1195,9 +1195,9 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
             llm_client = LLMClientFactory.create('mock')
             click.echo("   ⚠️  使用 Mock LLM（测试模式）")
         else:
-            llm_config['provider'] = 'llmstudio'
+            llm_config['provider'] = 'openai'
             base_url = llm_config.get('base_url', 'http://127.0.0.1:1234/v1')
-            click.echo(f"   连接 LLMStudio: {base_url}")
+            click.echo(f"   连接 OpenAI-compatible API: {base_url}")
 
             try:
                 llm_client = LLMClientFactory.create_from_config(llm_config)
