@@ -30,6 +30,9 @@ sources/nvme-split/
 wiki/
 .llmwiki/
 
+# 生成的报告文件
+reports/
+
 # Node.js
 node_modules/
 package-lock.json
