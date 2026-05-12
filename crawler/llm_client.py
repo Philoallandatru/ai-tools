@@ -101,12 +101,12 @@ class MockLLMClient(BaseLLMClient):
 class LLMStudioClient(BaseLLMClient):
     """LLMStudio 客户端 - 连接本地 LLM 服务"""
 
-    def __init__(self, base_url: str = "http://127.0.0.1:1234", model: str = "qwen3.5-4b"):
+    def __init__(self, base_url: str = "http://127.0.0.1:1234/v1", model: str = "qwen3.5-4b"):
         """
         初始化 LLMStudio 客户端
 
         Args:
-            base_url: LLMStudio 服务地址
+            base_url: LLMStudio 服务地址（应包含 API 版本路径，如 http://127.0.0.1:1234/v1）
             model: 模型名称
         """
         self.base_url = base_url.rstrip('/')
@@ -146,7 +146,7 @@ class LLMStudioClient(BaseLLMClient):
         try:
             # 尝试使用 chat completions API
             response = requests.post(
-                f"{self.base_url}/v1/chat/completions",
+                f"{self.base_url}/chat/completions",
                 json={
                     "model": self.model,
                     "messages": messages,
@@ -179,7 +179,7 @@ class LLMStudioClient(BaseLLMClient):
 
                 try:
                     response = requests.post(
-                        f"{self.base_url}/v1/completions",
+                        f"{self.base_url}/completions",
                         json={
                             "model": self.model,
                             "prompt": prompt,
