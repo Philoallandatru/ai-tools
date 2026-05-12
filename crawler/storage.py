@@ -123,7 +123,7 @@ class StorageManager:
         attachments: Optional[List[Dict[str, Any]]] = None
     ):
         """
-        保存 Jira issue，根据 issue type 分类存储
+        保存 Jira issue 到 sources 根目录
 
         Args:
             source_name: 数据源名称
@@ -133,21 +133,17 @@ class StorageManager:
             content: Markdown 内容
             attachments: 附件列表
         """
-        # 创建目录结构：jira/[source]/[project]/[issue-type]/
-        issue_type_safe = self._sanitize_filename(issue_type)
-        project_dir = self.base_dir / "jira" / source_name / project_key / issue_type_safe
-        project_dir.mkdir(parents=True, exist_ok=True)
-
-        # 保存 markdown 文件
-        md_file = project_dir / f"{issue_key}.md"
+        # 直接保存到 sources 根目录，使用 issue_key 作为文件名
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+        md_file = self.base_dir / f"{issue_key}.md"
 
         with open(md_file, 'w', encoding='utf-8') as f:
             f.write(content)
 
-        # 保存附件
+        # 保存附件到 attachments 子目录
         if attachments:
-            att_dir = project_dir / "attachments"
-            att_dir.mkdir(exist_ok=True)
+            att_dir = self.base_dir / "attachments" / issue_key
+            att_dir.mkdir(parents=True, exist_ok=True)
             self._save_attachments(attachments, att_dir)
 
     def _sanitize_filename(self, filename: str) -> str:
