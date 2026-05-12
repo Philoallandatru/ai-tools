@@ -160,7 +160,17 @@ class LLMStudioClient(BaseLLMClient):
             response.encoding = 'utf-8'  # 确保响应使用 UTF-8 解码
 
             result = response.json()
-            return result['choices'][0]['message']['content'].strip()
+
+            # 调试：打印响应结构
+            if not result.get('choices') or len(result['choices']) == 0:
+                print(f"[DEBUG] LLM 响应格式异常: {result}")
+                return ""
+
+            content = result['choices'][0]['message']['content']
+            if not content or len(content.strip()) == 0:
+                print(f"[DEBUG] LLM 返回空内容，完整响应: {result}")
+
+            return content.strip()
 
         except requests.HTTPError as e:
             # 如果 chat completions 失败，尝试 completions API（仅支持文本）
@@ -193,7 +203,17 @@ class LLMStudioClient(BaseLLMClient):
                     response.encoding = 'utf-8'
 
                     result = response.json()
-                    return result['choices'][0]['text'].strip()
+
+                    # 调试：打印响应结构
+                    if not result.get('choices') or len(result['choices']) == 0:
+                        print(f"[DEBUG] Completions API 响应格式异常: {result}")
+                        return ""
+
+                    text = result['choices'][0]['text']
+                    if not text or len(text.strip()) == 0:
+                        print(f"[DEBUG] Completions API 返回空内容，完整响应: {result}")
+
+                    return text.strip()
                 except requests.RequestException as fallback_error:
                     raise RuntimeError(f"LLMStudio API 调用失败 (两种端点都失败): {fallback_error}")
             else:
