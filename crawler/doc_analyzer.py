@@ -4,15 +4,21 @@
 
 import re
 import yaml
+import sys
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 import logging
 
+# 设置环境变量强制 UTF-8 输出（Windows 兼容）
+if sys.platform == 'win32':
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+
 from crawler.doc_splitter import DocumentSplitter, DocumentSection
 from crawler.searcher import ContentSearcher, SearchMatch
-from crawler.llm_client import BaseLLMClient, create_llm_client
+from crawler.llm_client import BaseLLMClient, LLMClientFactory
 
 logger = logging.getLogger(__name__)
 
@@ -66,14 +72,14 @@ class DocumentAnalyzer:
 
         # 初始化 LLM 客户端
         llm_config = self.config['llm']
-        if llm_config['provider'] == 'llmstudio':
-            self.llm_client = create_llm_client(
-                provider='llmstudio',
-                base_url=llm_config.get('base_url', 'http://127.0.0.1:1234'),
-                model=llm_config.get('model', 'qwen3.5-4b')
-            )
+        self.llm_client = LLMClientFactory.create_from_config(llm_config)
+
+        # 初始化 Vision LLM 客户端（如果启用）
+        vision_config = self.config.get('vision_llm', {})
+        if vision_config.get('enabled', False):
+            self.vision_client = LLMClientFactory.create_from_config(vision_config)
         else:
-            self.llm_client = create_llm_client(provider='mock')
+            self.vision_client = None
 
     def _load_config(self) -> Dict[str, Any]:
         """加载配置文件"""
@@ -104,15 +110,15 @@ class DocumentAnalyzer:
         if not doc_path.exists():
             raise FileNotFoundError(f"文档不存在: {doc_path}")
 
-        print(f"\n📄 开始分析文档: {doc_path.name}")
+        print(f"\n[开始] 分析文档: {doc_path.name}")
 
         # 1. 切分文档
-        print(f"   🔪 切分文档...")
+        print(f"   [切分] 切分文档...")
         sections = self._split_document(doc_path)
-        print(f"   ✓ 切分完成，共 {len(sections)} 个小节")
+        print(f"   [完成] 切分完成，共 {len(sections)} 个小节")
 
         if dry_run:
-            print(f"\n🔍 预览模式 - 将处理以下小节:")
+            print(f"\n[预览] 预览模式 - 将处理以下小节:")
             for i, section in enumerate(sections, 1):
                 print(f"   {i}. {section.title} ({len(section.content)} 字符)")
             return ""
@@ -120,7 +126,7 @@ class DocumentAnalyzer:
         # 2. 分析每个小节
         results = []
         for i, section in enumerate(sections, 1):
-            print(f"\n   📝 分析第 {i}/{len(sections)} 节: {section.title}")
+            print(f"\n   [分析] 第 {i}/{len(sections)} 节: {section.title}")
 
             try:
                 # 提取关键词
@@ -129,29 +135,44 @@ class DocumentAnalyzer:
 
                 # 提取图片引用
                 images = self._extract_images(section.content)
+                image_analyses = {}
                 if images:
-                    print(f"      📷 找到 {len(images)} 个图片引用")
+                    print(f"      [图片] 找到 {len(images)} 个图片引用")
+                    # 分析图片内容
+                    if self.vision_client:
+                        for img in images:
+                            print(f"         分析图片: {img['path']}")
+                            analysis = self._analyze_image(Path(img['path']), doc_path.parent)
+                            if analysis:
+                                image_analyses[img['path']] = analysis
+                                print(f"         [完成] 图片分析完成")
+                            else:
+                                print(f"         [警告] 图片分析失败")
 
                 # 检索上下文
-                print(f"      🔍 检索相关内容...")
+                print(f"      [检索] 检索相关内容...")
                 context = self._retrieve_context(section, keywords)
-                print(f"      ✓ 找到 {len(context.code_snippets)} 个代码片段, {len(context.doc_snippets)} 个文档片段")
+                print(f"      [完成] 找到 {len(context.code_snippets)} 个代码片段, {len(context.doc_snippets)} 个文档片段")
 
                 # 构建 prompt
                 prompt = self._build_prompt(section, context)
 
                 # 调用 LLM
-                print(f"      🤖 调用 LLM 分析...")
+                print(f"      [LLM] 调用 LLM 分析...")
                 llm_response = self._call_llm(prompt)
-                print(f"      ✓ LLM 分析完成")
+                print(f"      [完成] LLM 分析完成")
 
-                results.append(AnalysisResult(
+                # 创建结果，包含图片分析
+                result = AnalysisResult(
                     section=section,
                     llm_response=llm_response,
                     retrieval_context=context,
                     keywords=keywords,
                     image_references=images
-                ))
+                )
+                # 添加图片分析结果（作为额外属性）
+                result.image_analyses = image_analyses
+                results.append(result)
 
             except Exception as e:
                 # LLM 调用失败，立即停止
@@ -160,9 +181,9 @@ class DocumentAnalyzer:
                 raise RuntimeError(error_msg) from e
 
         # 3. 生成报告
-        print(f"\n   📊 生成分析报告...")
+        print(f"\n   [报告] 生成分析报告...")
         report_path = self._generate_report(doc_path, results, output_path)
-        print(f"   ✓ 报告已保存: {report_path}")
+        print(f"   [完成] 报告已保存: {report_path}")
 
         return str(report_path)
 
@@ -185,13 +206,88 @@ class DocumentAnalyzer:
 
     def _extract_keywords(self, text: str) -> List[str]:
         """
-        从文本中提取关键词用于检索
+        使用 LLM 从文本中提取关键词用于代码检索
 
-        策略：
-        1. 提取技术术语（大写缩写词，如 NVMe, CSTS, CC.EN）
-        2. 提取驼峰命名或下划线命名的标识符
-        3. 提取中文技术词汇（2-4 字）
-        4. 去重并过滤
+        Args:
+            text: 文档文本内容
+
+        Returns:
+            关键词列表
+        """
+        try:
+            # 获取关键词提取 prompt 模板
+            prompt_template = self.config['prompts'].get('keyword_extraction', '')
+            if not prompt_template:
+                logger.warning("未找到关键词提取 prompt，使用默认模板")
+                prompt_template = """请从以下文档内容中提取适合代码搜索的关键词。
+
+要求：
+1. 提取技术术语、API 名称、组件名称、功能名称
+2. 保留完整的技术术语（如 "NVMe Reset" 而不是拆分）
+3. 提取核心概念和功能关键词
+4. 中英文关键词都要提取
+5. 每个关键词 2-20 个字符
+6. 提取 5-15 个最重要的关键词
+7. 只返回关键词列表，每行一个，不要序号和其他解释
+
+文档内容：
+{text}
+
+关键词："""
+
+            # 限制文本长度，避免 token 过多
+            text_excerpt = text[:1000] if len(text) > 1000 else text
+
+            # 构建 prompt
+            prompt = prompt_template.format(text=text_excerpt)
+
+            # 调用 LLM 提取关键词
+            response = self.llm_client.generate(prompt, max_tokens=300)
+
+            # 解析响应
+            lines = response.strip().split('\n')
+            keywords = []
+
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+
+                # 移除可能的序号（1. 2. 或 1) 2) 等）
+                line = re.sub(r'^\d+[\.\)]\s*', '', line)
+                # 移除可能的引号
+                line = line.strip('"\'')
+                # 移除可能的项目符号
+                line = re.sub(r'^[-*]\s*', '', line)
+
+                if line and len(line) >= 2:
+                    keywords.append(line)
+
+            # 限制关键词数量
+            keywords = keywords[:15]
+
+            if keywords:
+                logger.info(f"LLM 提取到 {len(keywords)} 个关键词: {', '.join(keywords[:5])}...")
+            else:
+                logger.warning("LLM 未提取到关键词，回退到正则提取")
+                return self._extract_keywords_regex(text)
+
+            return keywords
+
+        except Exception as e:
+            logger.warning(f"LLM 关键词提取失败，回退到正则提取: {e}")
+            # 回退到正则表达式提取
+            return self._extract_keywords_regex(text)
+
+    def _extract_keywords_regex(self, text: str) -> List[str]:
+        """
+        使用正则表达式提取关键词（备用方案）
+
+        Args:
+            text: 文档文本内容
+
+        Returns:
+            关键词列表
         """
         keywords = []
 
@@ -200,7 +296,6 @@ class DocumentAnalyzer:
             r'\b[A-Z]{2,}\b',                    # 大写缩写：NVMe, CSTS
             r'\b[A-Z][a-z]+(?:[A-Z][a-z]+)+\b',  # 驼峰命名：ReadyState
             r'\b[a-z_]+_[a-z_]+\b',              # 下划线命名：nvme_reset
-            r'[一-龥]{2,4}',             # 中文词汇
         ]
 
         for pattern in patterns:
@@ -211,7 +306,7 @@ class DocumentAnalyzer:
         min_length = self.config['retrieval']['search']['min_match_length']
         keywords = list(set(k for k in keywords if len(k) >= min_length))
 
-        return keywords
+        return keywords[:15]  # 限制数量
 
     def _extract_images(self, content: str) -> List[Dict[str, str]]:
         """
@@ -235,6 +330,102 @@ class DocumentAnalyzer:
             })
 
         return images
+
+    def _analyze_image(self, image_path: Path, doc_base_path: Path) -> Optional[str]:
+        """
+        使用 vision LLM 分析图片内容
+
+        Args:
+            image_path: 图片相对路径
+            doc_base_path: 文档所在目录（用于解析相对路径）
+
+        Returns:
+            图片分析结果，如果失败返回 None
+        """
+        if not self.vision_client:
+            return None
+
+        try:
+            import base64
+            from PIL import Image
+            import io
+
+            # 解析图片的绝对路径
+            if image_path.is_absolute():
+                full_path = image_path
+            else:
+                full_path = doc_base_path / image_path
+
+            if not full_path.exists():
+                logger.warning(f"图片不存在: {full_path}")
+                return None
+
+            # 读取并压缩图片
+            img = Image.open(full_path)
+
+            # 压缩图片到合理大小（最大边 512px）
+            max_size = 512
+            if max(img.size) > max_size:
+                ratio = max_size / max(img.size)
+                new_size = tuple(int(dim * ratio) for dim in img.size)
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
+
+            # 转换为 JPEG 格式并压缩
+            buffer = io.BytesIO()
+            if img.mode in ('RGBA', 'LA', 'P'):
+                img = img.convert('RGB')
+            img.save(buffer, format='JPEG', quality=70)
+            image_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+            # 构建 vision API 请求
+            vision_config = self.config.get('vision_llm', {})
+            prompt = self.config['prompts'].get('image_analysis', '请描述这张图片的内容。')
+
+            # 使用 OpenAI vision API 格式
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_data}"
+                            }
+                        }
+                    ]
+                }
+            ]
+
+            # 调用 vision LLM（增加超时时间）
+            max_tokens = vision_config.get('max_tokens', 500)
+            timeout = vision_config.get('timeout', 180)  # 默认 180 秒
+
+            # 临时修改客户端超时
+            import requests
+            response = requests.post(
+                f"{self.vision_client.base_url}/v1/chat/completions",
+                json={
+                    "model": self.vision_client.model,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": 0.3
+                },
+                headers={"Content-Type": "application/json; charset=utf-8"},
+                timeout=timeout
+            )
+            response.raise_for_status()
+            response.encoding = 'utf-8'
+
+            result = response.json()
+            return result['choices'][0]['message']['content'].strip()
+
+        except Exception as e:
+            logger.error(f"图片分析失败 {image_path}: {e}")
+            return None
 
     def _retrieve_context(
         self,
@@ -469,6 +660,11 @@ class DocumentAnalyzer:
                 report_lines.append("\n### 包含的图片\n")
                 for img in result.image_references:
                     report_lines.append(f"- **{img['alt']}**: `{img['path']}`\n")
+
+                    # 如果有图片分析结果，添加到报告中
+                    if hasattr(result, 'image_analyses') and img['path'] in result.image_analyses:
+                        report_lines.append(f"\n**图片分析**:\n")
+                        report_lines.append(f"{result.image_analyses[img['path']]}\n")
 
             # 检索到的上下文
             report_lines.append("\n### 检索到的相关上下文\n")

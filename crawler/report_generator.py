@@ -76,6 +76,11 @@ class ReportGenerator:
             'summary': self._generate_summary(jira_data, confluence_data)
         }
 
+        # 执行报告分析（如果启用）
+        analysis_results = self._analyze_report(report)
+        if analysis_results:
+            report['analysis'] = analysis_results
+
         return report
 
     def _collect_jira_data(self, start_date: date, end_date: date) -> Dict[str, Any]:
@@ -285,6 +290,68 @@ class ReportGenerator:
             }
         }
 
+    def _analyze_report(self, report: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        执行报告分析
+
+        Args:
+            report: 报告数据
+
+        Returns:
+            分析结果字典
+        """
+        # 检查是否启用报告分析
+        report_analysis_config = self.config.get('report_analysis', {})
+        if not report_analysis_config.get('enabled', True):
+            return {}
+
+        try:
+            from crawler.report_analyzer import ReportAnalyzer
+            from crawler.analyzers.report_summary_analyzer import ReportSummaryAnalyzer
+            from crawler.analyzers.key_insights_analyzer import KeyInsightsAnalyzer
+            from crawler.analyzers.risk_analyzer import RiskAnalyzer
+
+            # 创建报告分析器
+            analyzer = ReportAnalyzer(config=self.config)
+
+            # 注册分析器
+            analyzers_config = report_analysis_config.get('analyzers', {})
+
+            # 摘要分析器
+            if analyzers_config.get('summary', {}).get('enabled', True):
+                summary_analyzer = ReportSummaryAnalyzer(
+                    analyzer.llm_client,
+                    analyzers_config.get('summary', {})
+                )
+                analyzer.register_analyzer(summary_analyzer)
+
+            # 关键发现分析器
+            if analyzers_config.get('insights', {}).get('enabled', True):
+                insights_analyzer = KeyInsightsAnalyzer(
+                    analyzer.llm_client,
+                    analyzers_config.get('insights', {})
+                )
+                analyzer.register_analyzer(insights_analyzer)
+
+            # 风险分析器
+            if analyzers_config.get('risks', {}).get('enabled', True):
+                risk_analyzer = RiskAnalyzer(
+                    analyzer.llm_client,
+                    analyzers_config.get('risks', {})
+                )
+                analyzer.register_analyzer(risk_analyzer)
+
+            # 执行分析
+            print("   🔍 开始报告分析...")
+            results = analyzer.analyze(report)
+            print("   ✓ 报告分析完成")
+
+            return results
+
+        except Exception as e:
+            print(f"   ⚠ 报告分析失败: {str(e)}")
+            return {}
+
     def format_report_markdown(self, report: Dict[str, Any]) -> str:
         """
         格式化报告为 Markdown
@@ -309,6 +376,83 @@ class ReportGenerator:
         lines.append(f"**时间范围**: {report['start_date']} 至 {report['end_date']}")
         lines.append(f"**生成时间**: {report['generated_at']}")
         lines.append("")
+
+        # 分析结果部分（如果有）
+        analysis = report.get('analysis', {})
+        if analysis:
+            # 执行摘要
+            summary_result = analysis.get('report_summary', {})
+            if summary_result.get('success') and summary_result.get('summary'):
+                lines.append("## 📋 执行摘要")
+                lines.append("")
+                lines.append(summary_result['summary'])
+                lines.append("")
+
+            # 关键发现
+            insights_result = analysis.get('key_insights', {})
+            if insights_result.get('success') and insights_result.get('insights'):
+                lines.append("## 🔍 关键发现")
+                lines.append("")
+                for i, insight in enumerate(insights_result['insights'], 1):
+                    insight_type = insight.get('type', '其他')
+                    description = insight.get('description', '')
+                    related_issue = insight.get('related_issue')
+
+                    if related_issue:
+                        lines.append(f"{i}. **[{insight_type}]** {description} (相关issue: {related_issue})")
+                    else:
+                        lines.append(f"{i}. **[{insight_type}]** {description}")
+                lines.append("")
+
+            # 潜在风险
+            risks_result = analysis.get('risk_analyzer', {})
+            if risks_result.get('success') and risks_result.get('risks'):
+                lines.append("## ⚠️ 潜在风险")
+                lines.append("")
+
+                risks = risks_result['risks']
+
+                # 进度风险
+                if risks.get('progress'):
+                    progress_risk = risks['progress']
+                    level = progress_risk.get('level', '未知')
+                    lines.append(f"### 进度风险 ({level})")
+                    lines.append("")
+                    if progress_risk.get('description'):
+                        lines.append(f"- **描述**: {progress_risk['description']}")
+                    if progress_risk.get('impact'):
+                        lines.append(f"- **影响**: {progress_risk['impact']}")
+                    if progress_risk.get('suggestion'):
+                        lines.append(f"- **建议**: {progress_risk['suggestion']}")
+                    lines.append("")
+
+                # 优先级风险
+                if risks.get('priority'):
+                    priority_risk = risks['priority']
+                    level = priority_risk.get('level', '未知')
+                    lines.append(f"### 优先级风险 ({level})")
+                    lines.append("")
+                    if priority_risk.get('description'):
+                        lines.append(f"- **描述**: {priority_risk['description']}")
+                    if priority_risk.get('impact'):
+                        lines.append(f"- **影响**: {priority_risk['impact']}")
+                    if priority_risk.get('suggestion'):
+                        lines.append(f"- **建议**: {priority_risk['suggestion']}")
+                    lines.append("")
+
+                # 资源风险
+                if risks.get('resource'):
+                    resource_risk = risks['resource']
+                    level = resource_risk.get('level', '未知')
+                    lines.append(f"### 资源风险 ({level})")
+                    lines.append("")
+                    if resource_risk.get('description'):
+                        lines.append(f"- **描述**: {resource_risk['description']}")
+                    if resource_risk.get('impact'):
+                        lines.append(f"- **影响**: {resource_risk['impact']}")
+                    if resource_risk.get('suggestion'):
+                        lines.append(f"- **建议**: {resource_risk['suggestion']}")
+                    lines.append("")
 
         # 摘要
         summary = report['summary']

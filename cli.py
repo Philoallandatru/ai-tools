@@ -29,7 +29,7 @@ from crawler.doc_splitter import DocumentSplitter
 from crawler.searcher import ContentSearcher
 from crawler.report_generator import ReportGenerator
 from crawler.jira_analyzer import JiraDeepAnalyzer
-from crawler.llm_client import create_llm_client
+from crawler.llm_client import LLMClientFactory
 from crawler.analyzers.knowledge_retriever import KnowledgeRetriever
 from crawler.analyzers.root_cause_analyzer import RootCauseAnalyzer
 from crawler.analyzers.similar_jira_finder import SimilarJiraFinder
@@ -1187,14 +1187,11 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
         # 2. 创建 LLM 客户端
         llm_config = config.get('llm', {})
         if llm_provider == 'llmstudio':
-            llm_client = create_llm_client(
-                'llmstudio',
-                base_url=llm_config.get('base_url', 'http://127.0.0.1:1234'),
-                model=llm_config.get('model', 'qwen3.5-0.8b')
-            )
+            llm_config['provider'] = 'llmstudio'
+            llm_client = LLMClientFactory.create_from_config(llm_config)
             click.echo(f"   使用 LLMStudio: {llm_config.get('base_url')}")
         else:
-            llm_client = create_llm_client('mock')
+            llm_client = LLMClientFactory.create('mock')
             click.echo("   使用 Mock LLM（测试模式）")
 
         click.echo("")

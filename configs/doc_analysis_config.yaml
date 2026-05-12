@@ -44,10 +44,41 @@ llm:
   timeout: 120                # 超时时间（秒）
   temperature: 0.3
 
+# Vision LLM 配置（用于图片分析）
+vision_llm:
+  enabled: true               # 是否启用图片分析
+  provider: "llamacpp"        # llamacpp 或 mock
+  base_url: "http://127.0.0.1:9090"  # llama.cpp 服务地址
+  model: "Qwen3-VL-4B-Instruct-Q4_K_M.gguf"
+  timeout: 120                # 超时时间（秒）
+  temperature: 0.3
+  max_tokens: 1000            # 图片分析的最大 token 数
+
 # Prompt 模板
 prompts:
   system: |
     你是一个需求分析专家。你的任务是分析客户需求文档的内容，判断是否可以形成具体的需求或测试用例。
+
+  # 关键词提取 prompt
+  keyword_extraction: |
+    请从以下文档内容中提取适合代码搜索的关键词。
+
+    要求：
+    1. **优先提取具体的技术术语**：类名、函数名、API 名称、协议名称、组件名称
+       - 例如：NVMeController, RDMATransport, Queue Pair, CC.EN, CSTS.RDY
+       - 而不是：架构、配置、系统、功能等通用词汇
+    2. 保留完整的技术术语（如 "NVMe Reset" 而不是拆分成 "NVMe" 和 "Reset"）
+    3. 提取大写缩写词和专有名词（如 RDMA, TCP, NVMe, Queue Pair）
+    4. 提取可能出现在代码中的标识符（如 reset, connect, disconnect, send_command）
+    5. 中英文关键词都要提取，但优先英文技术术语
+    6. 每个关键词 2-30 个字符
+    7. 提取 8-15 个最重要的关键词
+    8. 只返回关键词列表，每行一个，不要序号和其他解释
+
+    文档内容：
+    {text}
+
+    关键词：
 
   user_template: |
     ## 当前文档小节
@@ -68,6 +99,16 @@ prompts:
     1. 这个内容是否可以形成明确的功能需求（Requirement）？
     2. 这个内容是否可以形成具体的测试用例步骤（Test Case）？
     3. 参考相关代码和文档，给出你的分析建议。
+
+    请以 Markdown 格式输出分析结果。
+
+  # 图片分析 prompt
+  image_analysis: |
+    请详细描述这张图片的内容。如果图片包含架构图、流程图、状态图等技术图表，请说明：
+    1. 图表的类型和主要目的
+    2. 关键组件或模块
+    3. 组件之间的关系和数据流
+    4. 任何重要的技术细节或标注
 
     请以 Markdown 格式输出分析结果。
 

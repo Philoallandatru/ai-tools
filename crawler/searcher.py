@@ -114,7 +114,10 @@ class ContentSearcher:
                 files.extend(confluence_dir.rglob('*.md'))
 
         else:  # all
-            files.extend(self.source_dir.rglob('*.md'))
+            # 搜索所有文本文件（包括代码文件）
+            extensions = ['*.md', '*.py', '*.js', '*.ts', '*.java', '*.c', '*.cpp', '*.go', '*.rs', '*.txt']
+            for ext in extensions:
+                files.extend(self.source_dir.rglob(ext))
 
         return sorted(files)
 
