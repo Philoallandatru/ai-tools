@@ -206,8 +206,8 @@ def sync(config, source, type):
 
         # 统计信息
         stats = {
-            'confluence': {'pages': 0, 'attachments': 0},
-            'jira': {'issues': 0, 'attachments': 0}
+            'confluence': {'pages': 0, 'attachments': 0, 'skipped': 0, 'total': 0},
+            'jira': {'issues': 0, 'attachments': 0, 'skipped': 0, 'total': 0}
         }
 
         # 同步 Confluence
@@ -247,6 +247,8 @@ def sync(config, source, type):
                         result = future.result()
                         stats['confluence']['pages'] += result['pages']
                         stats['confluence']['attachments'] += result['attachments']
+                        stats['confluence']['skipped'] += result.get('skipped', 0)
+                        stats['confluence']['total'] += result.get('total', 0)
                         click.echo(f"  ✓ {task['source']['name']}/{task['space_key']}: {result['pages']} pages, {result['attachments']} attachments")
                     except Exception as e:
                         click.echo(f"  ✗ {task['source']['name']}/{task['space_key']}: {str(e)}", err=True)
@@ -289,6 +291,8 @@ def sync(config, source, type):
                         result = future.result()
                         stats['jira']['issues'] += result['issues']
                         stats['jira']['attachments'] += result['attachments']
+                        stats['jira']['skipped'] += result.get('skipped', 0)
+                        stats['jira']['total'] += result.get('total', 0)
                         click.echo(f"  ✓ {task['source']['name']}/{task['project_key']}: {result['issues']} issues, {result['attachments']} attachments")
                     except Exception as e:
                         click.echo(f"  ✗ {task['source']['name']}/{task['project_key']}: {str(e)}", err=True)
@@ -300,9 +304,17 @@ def sync(config, source, type):
         click.echo("\n" + "="*50)
         click.echo("Sync Summary:")
         if sources_to_sync['confluence']:
-            click.echo(f"  Confluence: {stats['confluence']['pages']} pages, {stats['confluence']['attachments']} attachments")
+            click.echo(f"  Confluence:")
+            click.echo(f"    - 总页面: {stats['confluence']['total']}")
+            click.echo(f"    - 已拉取: {stats['confluence']['pages']} (新增或已更新)")
+            click.echo(f"    - 已跳过: {stats['confluence']['skipped']} (未变化)")
+            click.echo(f"    - 附件: {stats['confluence']['attachments']}")
         if sources_to_sync['jira']:
-            click.echo(f"  Jira: {stats['jira']['issues']} issues, {stats['jira']['attachments']} attachments")
+            click.echo(f"  Jira:")
+            click.echo(f"    - 总 issues: {stats['jira']['total']}")
+            click.echo(f"    - 已拉取: {stats['jira']['issues']} (新增或已更新)")
+            click.echo(f"    - 已跳过: {stats['jira']['skipped']} (未变化)")
+            click.echo(f"    - 附件: {stats['jira']['attachments']}")
         click.echo("="*50)
         click.echo("\n[OK] Sync completed!")
 

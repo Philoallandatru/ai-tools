@@ -47,38 +47,133 @@ class ConfluenceCrawler:
             storage: 存储管理器
 
         Returns:
-            统计信息字典 {'pages': int, 'attachments': int}
+            统计信息字典 {'pages': int, 'attachments': int, 'skipped': int, 'total': int}
         """
-        stats = {'pages': 0, 'attachments': 0}
+        stats = {'pages': 0, 'attachments': 0, 'skipped': 0, 'total': 0}
 
         try:
-            # 获取 space 的所有页面
-            pages = self.client.get_all_pages_from_space(
-                space_key,
-                expand='body.storage,version,history'
-            )
+            # 第一阶段：获取所有页面的基本信息
+            print(f"\n[Confluence] 正在扫描 space {space_key} 的页面...")
+            print(f"[Confluence] 模式: {'Cloud' if self.client.cloud else 'Server'}")
+            print(f"[Confluence] URL: {self.base_url}")
+
+            # 获取 space 的所有页面（只获取基本信息）
+            pages = []
+            try:
+                # 尝试标准方法
+                pages = self.client.get_all_pages_from_space(
+                    space_key,
+                    expand='version'  # 只获取版本信息用于检测
+                )
+                print(f"[Confluence] 使用标准方法成功获取页面")
+            except Exception as e:
+                print(f"[Confluence] 警告: 标准方法失败: {str(e)}")
+                print(f"[Confluence] 尝试使用备用方法（手动分页）...")
+
+                # 备用方法：手动分页
+                start = 0
+                limit = 50
+                consecutive_empty = 0
+
+                while consecutive_empty < 2:  # 连续两次空结果才停止
+                    try:
+                        response = self.client.get_all_pages_from_space_raw(
+                            space=space_key,
+                            start=start,
+                            limit=limit,
+                            expand='version'
+                        )
+                        results = response.get('results', [])
+
+                        if not results:
+                            consecutive_empty += 1
+                            print(f"[Confluence] 第 {start//limit + 1} 页: 0 个结果 (连续空结果: {consecutive_empty})")
+                        else:
+                            consecutive_empty = 0
+                            pages.extend(results)
+                            print(f"[Confluence] 第 {start//limit + 1} 页: {len(results)} 个结果")
+
+                        # 如果返回结果少于 limit，说明已经是最后一页
+                        if len(results) < limit:
+                            break
+
+                        start += limit
+
+                    except Exception as inner_e:
+                        print(f"[Confluence] 备用方法在 start={start} 时失败: {str(inner_e)}")
+                        break
+
+            # 调试信息
+            print(f"[Confluence] API 返回的页面数量: {len(pages) if pages else 0}")
+            if pages and len(pages) > 0:
+                print(f"[Confluence] 第一个页面示例: {pages[0].get('id', 'N/A')} - {pages[0].get('title', 'N/A')}")
+            elif not pages:
+                print(f"[Confluence] 警告: 未找到任何页面，可能的原因:")
+                print(f"  1. Space key '{space_key}' 不存在")
+                print(f"  2. 没有访问权限")
+                print(f"  3. Space 中没有页面")
+                print(f"  4. API 认证问题")
 
             # 获取状态
             state = storage.get_confluence_state(source_name, space_key)
 
-            # 处理每个页面
+            # 检查哪些页面需要更新
+            pages_to_fetch = []
             for page in pages:
+                stats['total'] += 1
                 page_id = page['id']
                 last_version = state.get(page_id, {}).get('version', 0)
                 current_version = page['version']['number']
 
                 # 检查是否需要更新
                 if current_version > last_version:
-                    attachments_count = self._process_page(source_name, space_key, page, storage)
-                    stats['pages'] += 1
-                    stats['attachments'] += attachments_count
+                    pages_to_fetch.append(page)
+                else:
+                    stats['skipped'] += 1
 
-                    # 更新状态
-                    state[page_id] = {
-                        'title': page['title'],
-                        'last_updated': page['version']['when'],
-                        'version': current_version
-                    }
+            # 报告扫描结果
+            print(f"[Confluence] 扫描完成:")
+            print(f"  - 总页面: {stats['total']}")
+            print(f"  - 需要拉取: {len(pages_to_fetch)} (新增或已更新)")
+            print(f"  - 跳过: {stats['skipped']} (未变化)")
+
+            # 第二阶段：只拉取需要更新的页面
+            if pages_to_fetch:
+                print(f"\n[Confluence] 开始拉取 {len(pages_to_fetch)} 个页面...")
+                for idx, page in enumerate(pages_to_fetch, 1):
+                    try:
+                        # 获取完整的页面数据（包含内容和历史）
+                        page_id = page['id']
+                        full_page = self.client.get_page_by_id(
+                            page_id,
+                            expand='body.storage,version,history'
+                        )
+
+                        attachments_count = self._process_page(source_name, space_key, full_page, storage)
+                        stats['pages'] += 1
+                        stats['attachments'] += attachments_count
+
+                        # 更新状态
+                        state[page_id] = {
+                            'title': full_page['title'],
+                            'last_updated': full_page['version']['when'],
+                            'version': full_page['version']['number']
+                        }
+
+                        if idx % 10 == 0:
+                            print(f"  进度: {idx}/{len(pages_to_fetch)}")
+
+                    except Exception as e:
+                        self.error_handler.log_error(
+                            'fetch_confluence_page',
+                            str(e),
+                            (page.get('id'), page.get('title')),
+                            {}
+                        )
+
+                print(f"[Confluence] 拉取完成: {stats['pages']} 个页面, {stats['attachments']} 个附件")
+            else:
+                print(f"[Confluence] 无需拉取，所有页面都是最新的")
 
         except Exception as e:
             self.error_handler.log_error(

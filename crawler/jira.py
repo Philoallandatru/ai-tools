@@ -49,9 +49,9 @@ class JiraCrawler:
             storage: 存储管理器
 
         Returns:
-            统计信息字典 {'issues': int, 'attachments': int}
+            统计信息字典 {'issues': int, 'attachments': int, 'skipped': int, 'total': int}
         """
-        stats = {'issues': 0, 'attachments': 0}
+        stats = {'issues': 0, 'attachments': 0, 'skipped': 0, 'total': 0}
 
         try:
             # 使用 JQL 查询所有 issues，获取所有字段
@@ -62,27 +62,59 @@ class JiraCrawler:
             # 获取状态
             state = storage.get_jira_state(source_name, project_key)
 
+            # 第一阶段：扫描所有 issues，统计需要更新的数量
+            print(f"\n[Jira] 正在扫描 project {project_key} 的 issues...")
+            issues_to_fetch = []
+            total_issues = 0
+
             while True:
                 # 分页获取 issues - 使用 API v3
                 result = self.client.jql(
                     jql,
                     start=start_at,
                     limit=max_results,
-                    fields='*all'
+                    fields='key,updated,summary'  # 只获取必要字段用于检测
                 )
 
                 issues = result.get('issues', [])
                 if not issues:
                     break
 
-                # 处理每个 issue
+                # 检查每个 issue 是否需要更新
                 for issue in issues:
+                    total_issues += 1
                     issue_key = issue['key']
                     last_updated_local = state.get(issue_key, {}).get('last_updated', '')
                     current_updated = issue['fields']['updated']
 
                     # 检查是否需要更新
                     if current_updated > last_updated_local:
+                        issues_to_fetch.append(issue_key)
+                    else:
+                        stats['skipped'] += 1
+
+                # 检查是否还有更多数据
+                if len(issues) < max_results:
+                    break
+
+                start_at += max_results
+
+            stats['total'] = total_issues
+
+            # 报告扫描结果
+            print(f"[Jira] 扫描完成:")
+            print(f"  - 总 issues: {total_issues}")
+            print(f"  - 需要拉取: {len(issues_to_fetch)} (新增或已更新)")
+            print(f"  - 跳过: {stats['skipped']} (未变化)")
+
+            # 第二阶段：只拉取需要更新的 issues
+            if issues_to_fetch:
+                print(f"\n[Jira] 开始拉取 {len(issues_to_fetch)} 个 issues...")
+                for idx, issue_key in enumerate(issues_to_fetch, 1):
+                    try:
+                        # 获取完整的 issue 数据
+                        issue = self.client.issue(issue_key, fields='*all')
+
                         attachments_count = self._process_issue(source_name, project_key, issue, storage)
                         stats['issues'] += 1
                         stats['attachments'] += attachments_count
@@ -90,14 +122,23 @@ class JiraCrawler:
                         # 更新状态
                         state[issue_key] = {
                             'summary': issue['fields']['summary'],
-                            'last_updated': current_updated
+                            'last_updated': issue['fields']['updated']
                         }
 
-                # 检查是否还有更多数据
-                if len(issues) < max_results:
-                    break
+                        if idx % 10 == 0:
+                            print(f"  进度: {idx}/{len(issues_to_fetch)}")
 
-                start_at += max_results
+                    except Exception as e:
+                        self.error_handler.log_error(
+                            'fetch_jira_issue',
+                            str(e),
+                            (issue_key,),
+                            {}
+                        )
+
+                print(f"[Jira] 拉取完成: {stats['issues']} 个 issues, {stats['attachments']} 个附件")
+            else:
+                print(f"[Jira] 无需拉取，所有 issues 都是最新的")
 
         except Exception as e:
             self.error_handler.log_error(

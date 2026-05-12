@@ -37,43 +37,65 @@ def sync_all(config_path: str = "config.yaml"):
         # 获取所有数据源
         sources_to_sync = filter_sources(cfg['sources'], None, 'all')
 
+        # 统计信息
+        stats = {
+            'confluence': {'pages': 0, 'attachments': 0, 'skipped': 0, 'total': 0},
+            'jira': {'issues': 0, 'attachments': 0, 'skipped': 0, 'total': 0}
+        }
+
         # 同步 Confluence
         if sources_to_sync['confluence']:
             print("Syncing Confluence...")
             for src in sources_to_sync['confluence']:
                 print(f"\nSource: {src['name']}")
+                is_cloud = src.get('type', 'cloud').lower() == 'cloud'
                 crawler = ConfluenceCrawler(
                     src['url'],
-                    src['username'],
                     src['api_token'],
-                    error_handler
+                    error_handler,
+                    username=src.get('username'),
+                    is_cloud=is_cloud
                 )
                 for space in src['spaces']:
                     print(f"  Processing space: {space['key']}")
-                    crawler.crawl_space(src['name'], space['key'], storage)
+                    result = crawler.crawl_space(src['name'], space['key'], storage)
+                    stats['confluence']['pages'] += result['pages']
+                    stats['confluence']['attachments'] += result['attachments']
+                    stats['confluence']['skipped'] += result.get('skipped', 0)
+                    stats['confluence']['total'] += result.get('total', 0)
 
         # 同步 Jira
         if sources_to_sync['jira']:
             print("\nSyncing Jira...")
             for src in sources_to_sync['jira']:
                 print(f"\nSource: {src['name']}")
+                is_cloud = src.get('type', 'cloud').lower() == 'cloud'
                 crawler = JiraCrawler(
                     src['url'],
                     src['api_token'],
                     error_handler,
                     username=src.get('username'),
-                    is_cloud=True,
+                    is_cloud=is_cloud,
                     max_results_per_page=max_results_per_page
                 )
                 for project in src['projects']:
                     print(f"  Processing project: {project['key']}")
-                    crawler.crawl_project(src['name'], project['key'], storage)
+                    result = crawler.crawl_project(src['name'], project['key'], storage)
+                    stats['jira']['issues'] += result['issues']
+                    stats['jira']['attachments'] += result['attachments']
+                    stats['jira']['skipped'] += result.get('skipped', 0)
+                    stats['jira']['total'] += result.get('total', 0)
 
         storage.save_state()
         error_handler.generate_error_report()
 
         print(f"\n{'='*60}")
         print(f"Sync completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Summary:")
+        if sources_to_sync['confluence']:
+            print(f"  Confluence: {stats['confluence']['pages']}/{stats['confluence']['total']} pages fetched, {stats['confluence']['skipped']} skipped")
+        if sources_to_sync['jira']:
+            print(f"  Jira: {stats['jira']['issues']}/{stats['jira']['total']} issues fetched, {stats['jira']['skipped']} skipped")
         print(f"{'='*60}\n")
 
     except Exception as e:
