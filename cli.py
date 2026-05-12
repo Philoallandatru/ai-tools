@@ -429,7 +429,7 @@ def list_jira(source_dir, status, priority, issue_type):
 @click.option('--report-type', type=click.Choice(['weekly', 'jira']), required=True, help='报告类型')
 @click.option('--start-date', help='开始日期 (YYYY-MM-DD)')
 @click.option('--end-date', help='结束日期 (YYYY-MM-DD)')
-@click.option('--output', help='输出文件路径')
+@click.option('--output', help='输出目录路径')
 @click.option('--source-dir', default='./sources', help='源目录')
 @click.option('--output-format', type=click.Choice(['markdown', 'json']), default='markdown', help='输出格式')
 @click.option('--config', default='config.yaml', help='配置文件路径')
@@ -437,19 +437,25 @@ def list_jira(source_dir, status, priority, issue_type):
 @handle_cli_errors
 def generate_report(report_type, start_date, end_date, output, source_dir, output_format, config):
     """生成报告"""
+    from datetime import datetime
     output_cli = CLIOutput()
-    cfg = ConfigManager(config).load_validated()
+    cfg = ConfigManager(config).load()  # 返回字典
 
-    service = ReportService(cfg)
-    report_path = service.generate(
+    # 转换日期字符串为 date 对象
+    start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else None
+    end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else None
+
+    service = ReportService(config=cfg)
+    result = service.generate(
         report_type=report_type,
-        start_date=start_date,
-        end_date=end_date,
-        output_path=output,
+        start_date=start_date_obj,
+        end_date=end_date_obj,
+        output_dir=output or './reports',
+        source_dir=source_dir,
         output_format=output_format
     )
 
-    output_cli.success(f"报告已生成: {report_path}")
+    output_cli.success(f"报告已生成: {result.output_file}")
 
 
 @cli.command()
@@ -525,10 +531,10 @@ def export_filtered(doc_type, statuses, today, yesterday, days, output, source_d
 def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider, config):
     """分析 Jira issue"""
     output_cli = CLIOutput()
-    cfg = ConfigManager(config).load_validated()
+    cfg = ConfigManager(config).load()  # 返回字典
 
-    service = AnalysisService(cfg)
-    report_path = service.analyze_jira_issue(
+    service = AnalysisService(config=cfg)
+    report_path = service.analyze_jira(
         issue_key=issue_key,
         output_dir=output_dir
     )
@@ -546,9 +552,9 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider, conf
 def analyze_doc(doc_path, config, output, dry_run):
     """分析文档"""
     output_cli = CLIOutput()
-    cfg = ConfigManager(config).load_validated()
+    cfg = ConfigManager(config).load()  # 返回字典
 
-    service = AnalysisService(cfg)
+    service = AnalysisService(config=cfg)
 
     if dry_run:
         output_cli.info(f"将分析文档: {doc_path}")

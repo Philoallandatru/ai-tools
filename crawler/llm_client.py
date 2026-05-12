@@ -123,16 +123,23 @@ class MockLLMClient(BaseLLMClient):
 class OpenAIClient(BaseLLMClient):
     """OpenAI-compatible API 客户端 - 支持本地 LLM 服务（Ollama, LM Studio, vLLM, LocalAI 等）和 OpenAI API"""
 
-    def __init__(self, base_url: str = "http://127.0.0.1:1234/v1", model: str = "qwen3.5-4b"):
+    def __init__(
+        self,
+        base_url: str = "http://127.0.0.1:1234/v1",
+        model: str = "qwen3.5-4b",
+        timeout: int = 120,
+    ):
         """
         初始化 OpenAI-compatible 客户端
 
         Args:
             base_url: API 服务地址（应包含 API 版本路径，如 http://127.0.0.1:1234/v1）
             model: 模型名称
+            timeout: 请求超时时间（秒）
         """
         self.base_url = base_url.rstrip('/')
         self.model = model
+        self.timeout = timeout
 
     def generate(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.7) -> str:
         """
@@ -178,7 +185,7 @@ class OpenAIClient(BaseLLMClient):
                     "temperature": temperature
                 },
                 headers={"Content-Type": "application/json; charset=utf-8"},
-                timeout=120  # 增加到 120 秒
+                timeout=self.timeout
             )
             response.raise_for_status()
             response.encoding = 'utf-8'  # 确保响应使用 UTF-8 解码
@@ -229,7 +236,7 @@ class OpenAIClient(BaseLLMClient):
                             "temperature": 0.7
                         },
                         headers={"Content-Type": "application/json; charset=utf-8"},
-                        timeout=120
+                        timeout=self.timeout
                     )
                     response.raise_for_status()
                     response.encoding = 'utf-8'
@@ -251,13 +258,23 @@ class OpenAIClient(BaseLLMClient):
             else:
                 raise RuntimeError(f"OpenAI API 调用失败: {e}")
         except requests.Timeout:
-            raise RuntimeError(f"OpenAI API 调用超时（120秒）")
+            raise RuntimeError(f"OpenAI API 调用超时（{self.timeout}秒）")
         except requests.RequestException as e:
             raise RuntimeError(f"OpenAI API 调用失败: {e}")
 
 
 class LLMClientFactory:
     """LLM 客户端工厂类 - 集中管理客户端创建逻辑"""
+
+    OPENAI_COMPATIBLE_PROVIDERS = {
+        'openai',
+        'llmstudio',
+        'lmstudio',
+        'ollama',
+        'vllm',
+        'localai',
+        'llamacpp',
+    }
 
     @staticmethod
     def create_from_config(config: dict) -> BaseLLMClient:
@@ -286,22 +303,26 @@ class LLMClientFactory:
             ... }
             >>> client = LLMClientFactory.create_from_config(config)
         """
-        provider = config.get('provider', 'mock')
+        provider = config.get('provider', 'mock').lower()
 
         if provider == 'mock':
             return MockLLMClient()
 
-        elif provider == 'openai':
+        elif provider in LLMClientFactory.OPENAI_COMPATIBLE_PROVIDERS:
             # 验证必需字段
             base_url = config.get('base_url')
             model = config.get('model')
+            timeout = config.get('timeout', 120)
 
             if not base_url:
-                raise ValueError("openai provider requires 'base_url' in config")
+                raise ValueError(f"{provider} provider requires 'base_url' in config")
             if not model:
-                raise ValueError("openai provider requires 'model' in config")
+                raise ValueError(f"{provider} provider requires 'model' in config")
 
-            return OpenAIClient(base_url=base_url, model=model)
+            if provider in {'llmstudio', 'lmstudio', 'llamacpp'} and not base_url.rstrip('/').endswith('/v1'):
+                base_url = f"{base_url.rstrip('/')}/v1"
+
+            return OpenAIClient(base_url=base_url, model=model, timeout=timeout)
 
         else:
             raise ValueError(f"不支持的 LLM 提供商: {provider}")
@@ -318,9 +339,10 @@ class LLMClientFactory:
         Returns:
             BaseLLMClient: LLM 客户端实例
         """
+        provider = provider.lower()
         if provider == "mock":
             return MockLLMClient()
-        elif provider == "openai":
+        elif provider in LLMClientFactory.OPENAI_COMPATIBLE_PROVIDERS:
             return OpenAIClient(**kwargs)
         else:
             raise ValueError(f"不支持的 LLM 提供商: {provider}")
