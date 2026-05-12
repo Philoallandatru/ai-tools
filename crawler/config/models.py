@@ -285,6 +285,29 @@ class LoggingConfig(BaseModel):
         return v
 
 
+class MetricsConfig(BaseModel):
+    """Metrics collection configuration."""
+
+    enabled: bool = Field(default=False)
+    port: int = Field(default=9090, ge=1024, le=65535)
+
+
+class TracingConfig(BaseModel):
+    """Distributed tracing configuration."""
+
+    enabled: bool = Field(default=False)
+    service_name: str = Field(default="crawler")
+    otlp_endpoint: Optional[str] = Field(default=None)
+    console_export: bool = Field(default=False)
+
+
+class ObservabilityConfig(BaseModel):
+    """Observability configuration."""
+
+    metrics: MetricsConfig = Field(default_factory=MetricsConfig)
+    tracing: TracingConfig = Field(default_factory=TracingConfig)
+
+
 class AppConfig(BaseModel):
     """Root application configuration."""
 
@@ -306,3 +329,4 @@ class AppConfig(BaseModel):
     jira_analysis: JiraAnalysisConfig = Field(default_factory=JiraAnalysisConfig)
     custom_analyzers: List[CustomAnalyzerConfig] = Field(default_factory=list)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)

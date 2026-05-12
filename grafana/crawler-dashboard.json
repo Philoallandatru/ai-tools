@@ -1,0 +1,231 @@
+{
+  "dashboard": {
+    "title": "Crawler Observability Dashboard",
+    "tags": ["crawler", "observability"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Sync Requests Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(sync_requests_total[5m])",
+            "legendFormat": "{{source_type}} - {{source_name}} ({{status}})",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Requests/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Sync Duration (p95)",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(sync_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{source_type}} - {{source_name}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "LLM Requests Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(llm_requests_total[5m])",
+            "legendFormat": "{{provider}} - {{model}} ({{status}})",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Requests/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "LLM Response Time (p95)",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(llm_response_time_seconds_bucket[5m]))",
+            "legendFormat": "{{provider}} - {{model}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Response Time"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Active Sync Operations",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 16, "w": 8, "h": 6},
+        "targets": [
+          {
+            "expr": "active_syncs",
+            "legendFormat": "{{source_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Active Operations"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "LLM Token Usage",
+        "type": "graph",
+        "gridPos": {"x": 8, "y": 16, "w": 8, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(llm_tokens_total[5m])",
+            "legendFormat": "{{provider}} - {{model}} ({{token_type}})",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Tokens/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Cache Size",
+        "type": "graph",
+        "gridPos": {"x": 16, "y": 16, "w": 8, "h": 6},
+        "targets": [
+          {
+            "expr": "cache_size_bytes",
+            "legendFormat": "{{cache_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "bytes", "label": "Size"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(sync_requests_total{status=\"error\"}[5m])",
+            "legendFormat": "Sync Errors - {{source_type}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(llm_requests_total{status=\"error\"}[5m])",
+            "legendFormat": "LLM Errors - {{provider}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Errors/sec"},
+          {"format": "short"}
+        ],
+        "alert": {
+          "name": "High Error Rate",
+          "conditions": [
+            {
+              "evaluator": {"params": [0.1], "type": "gt"},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"params": [], "type": "avg"},
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "message": "Error rate is above 0.1 req/s",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 9,
+        "title": "Success Rate",
+        "type": "singlestat",
+        "gridPos": {"x": 12, "y": 22, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(sync_requests_total{status=\"success\"}[5m])) / sum(rate(sync_requests_total[5m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "format": "percent",
+        "valueName": "current",
+        "thresholds": "90,95",
+        "colors": ["#d44a3a", "#e0b400", "#299c46"]
+      },
+      {
+        "id": 10,
+        "title": "Total Requests (24h)",
+        "type": "singlestat",
+        "gridPos": {"x": 18, "y": 22, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(increase(sync_requests_total[24h]))",
+            "refId": "A"
+          }
+        ],
+        "format": "short",
+        "valueName": "current"
+      },
+      {
+        "id": 11,
+        "title": "Avg Sync Duration",
+        "type": "singlestat",
+        "gridPos": {"x": 12, "y": 26, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "avg(rate(sync_duration_seconds_sum[5m]) / rate(sync_duration_seconds_count[5m]))",
+            "refId": "A"
+          }
+        ],
+        "format": "s",
+        "valueName": "current",
+        "decimals": 2
+      },
+      {
+        "id": 12,
+        "title": "Avg LLM Response Time",
+        "type": "singlestat",
+        "gridPos": {"x": 18, "y": 26, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "avg(rate(llm_response_time_seconds_sum[5m]) / rate(llm_response_time_seconds_count[5m]))",
+            "refId": "A"
+          }
+        ],
+        "format": "s",
+        "valueName": "current",
+        "decimals": 2
+      }
+    ]
+  }
+}
