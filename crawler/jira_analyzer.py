@@ -2,15 +2,14 @@
 Jira 深度分析器 - 主控制器
 """
 
-import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from crawler.analysis_context import AnalysisContext
-from crawler.analyzers.base import BaseAnalyzer
-from crawler.llm_client import BaseLLMClient, create_llm_client
+from crawler.unified_analyzer import UnifiedAnalyzer
+from crawler.llm_client import BaseLLMClient, LLMClientFactory
 
 
-class JiraDeepAnalyzer:
+class JiraDeepAnalyzer(UnifiedAnalyzer):
     """Jira 深度分析器 - 协调分析流水线"""
 
     def __init__(self, source_dir: str = './sources', llm_client: Optional[BaseLLMClient] = None):
@@ -21,25 +20,17 @@ class JiraDeepAnalyzer:
             source_dir: 源文件目录
             llm_client: LLM 客户端（如果为 None，使用 Mock 客户端）
         """
+        llm = llm_client or LLMClientFactory.create_from_config({'provider': 'mock'})
+        super().__init__(llm)
         self.source_dir = Path(source_dir)
-        self.llm_client = llm_client or create_llm_client("mock")
-        self.pipeline: List[BaseAnalyzer] = []
 
-    def register_analyzer(self, analyzer: BaseAnalyzer) -> None:
-        """
-        注册分析器到流水线
-
-        Args:
-            analyzer: 分析器实例
-        """
-        self.pipeline.append(analyzer)
-
-    def analyze(self, issue_key: str) -> str:
+    def analyze(self, issue_key: str, context: Optional[AnalysisContext] = None) -> str:
         """
         执行完整分析流水线
 
         Args:
-            issue_key: Jira Issue Key (例如: KAN-1)
+            issue_key: Jira Issue Key (例如: KAN-1) 或数据字典
+            context: 分析上下文（可选）
 
         Returns:
             Markdown 格式的分析报告
@@ -48,37 +39,27 @@ class JiraDeepAnalyzer:
             FileNotFoundError: Issue 文件不存在
             RuntimeError: 分析过程中发生错误
         """
-        import sys
-        # 1. 加载 Jira 数据
-        print(f"   📄 加载 Jira 数据: {issue_key}", flush=True)
-        jira_data = self._load_jira_data(issue_key)
-        print(f"   ✓ 数据加载完成", flush=True)
+        # 支持传入 issue_key 字符串或数据字典
+        if isinstance(issue_key, str):
+            # 1. 加载 Jira 数据
+            print(f"   📄 加载 Jira 数据: {issue_key}", flush=True)
+            jira_data = self._load_jira_data(issue_key)
+            print(f"   ✓ 数据加载完成", flush=True)
+            key = issue_key
+        else:
+            # 传入的是数据字典
+            jira_data = issue_key
+            key = jira_data.get('key', 'unknown')
 
         # 2. 创建分析上下文
-        print(f"   🔧 创建分析上下文", flush=True)
-        context = AnalysisContext(issue_key)
-        print(f"   ✓ 上下文创建完成", flush=True)
+        if context is None:
+            print(f"   🔧 创建分析上下文", flush=True)
+            context = AnalysisContext(key)
+            print(f"   ✓ 上下文创建完成", flush=True)
 
-        # 3. 执行分析流水线
+        # 3. 执行分析流水线（使用统一的 execute_pipeline）
         print(f"   🚀 开始执行 {len(self.pipeline)} 个分析器", flush=True)
-        for analyzer in self.pipeline:
-            analyzer_name = analyzer.get_name()
-            print(f"   ▶ 开始执行: {analyzer_name}", flush=True)
-            start_time = time.time()
-
-            try:
-                result = analyzer.analyze(jira_data, context)
-                context.set_result(analyzer_name, result)
-
-                duration_ms = (time.time() - start_time) * 1000
-                context.record_timing(analyzer_name, duration_ms)
-                print(f"   ✓ 完成: {analyzer_name} ({duration_ms:.0f}ms)", flush=True)
-
-            except Exception as e:
-                error_msg = f"{analyzer_name} 分析失败: {str(e)}"
-                context.add_warning(error_msg)
-                print(f"   ✗ 失败: {analyzer_name} - {str(e)}", flush=True)
-                raise RuntimeError(error_msg) from e
+        context = self.execute_pipeline(jira_data, context, stop_on_error=True)
 
         # 4. 生成报告
         report = self._generate_report(jira_data, context)

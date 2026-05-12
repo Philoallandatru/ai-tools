@@ -1,5 +1,5 @@
 """
-分析上下文模块 - 在分析流水线中传递状态
+报告分析上下文模块 - 在报告分析流水线中传递状态
 """
 
 from typing import Dict, Any
@@ -7,18 +7,24 @@ from datetime import datetime
 from crawler.base_context import BaseContext
 
 
-class AnalysisContext(BaseContext):
-    """Jira 分析上下文 - 存储 Jira Issue 分析过程中的中间结果和元数据"""
+class ReportContext(BaseContext):
+    """报告分析上下文 - 存储报告分析过程中的中间结果和元数据"""
 
-    def __init__(self, issue_key: str):
+    def __init__(self, report_data: Dict[str, Any]):
         """
-        初始化分析上下文
+        初始化报告分析上下文
 
         Args:
-            issue_key: Jira Issue Key (例如: KAN-1)
+            report_data: 原始报告数据，包含 type, start_date, end_date, jira, confluence, summary
         """
-        super().__init__(issue_key)
-        self.issue_key = issue_key
+        # 构建标识符：report_type_start_to_end
+        report_type = report_data.get('type', 'unknown')
+        start_date = report_data.get('start_date', 'unknown')
+        end_date = report_data.get('end_date', 'unknown')
+        identifier = f"{report_type}_{start_date}_to_{end_date}"
+
+        super().__init__(identifier)
+        self.report_data = report_data
         self.metadata['llm_calls'] = 0
 
     def increment_llm_calls(self) -> None:
@@ -33,7 +39,9 @@ class AnalysisContext(BaseContext):
             包含所有结果和元数据的摘要字典
         """
         return {
-            'issue_key': self.issue_key,
+            'report_type': self.report_data.get('type'),
+            'start_date': self.report_data.get('start_date'),
+            'end_date': self.report_data.get('end_date'),
             'results': self.results,
             'metadata': {
                 **self.metadata,
