@@ -155,7 +155,7 @@ class JiraDeepAnalyzer(UnifiedAnalyzer):
         # 标题
         lines.append(f"# Jira 深度分析报告: [{jira_data['key']}] {jira_data['title']}")
         lines.append("")
-        lines.append(f"**生成时间**: {context.metadata['start_time']}")
+        lines.append(f"**生成时间**: {context.metadata.get('created_at', 'N/A')}")
         lines.append(f"**状态**: {jira_data['status']} | **优先级**: {jira_data['priority']} | **类型**: {jira_data['type']}")
         lines.append("")
 
@@ -199,17 +199,17 @@ class JiraDeepAnalyzer(UnifiedAnalyzer):
                 lines.append("")
 
         # 元数据
-        if context.metadata['warnings']:
+        if context.warnings:
             lines.append("## ⚠️ 警告")
             lines.append("")
-            for warning in context.metadata['warnings']:
-                lines.append(f"- {warning['message']}")
+            for warning in context.warnings:
+                lines.append(f"- {warning}")
             lines.append("")
 
         lines.append("## 📊 分析统计")
         lines.append("")
-        lines.append(f"- **LLM 调用次数**: {context.metadata['llm_calls']}")
-        lines.append(f"- **总耗时**: {sum(context.metadata['timing'].values()):.2f} ms")
+        lines.append(f"- **LLM 调用次数**: {context.metadata.get('llm_calls', 0)}")
+        lines.append(f"- **总耗时**: {context.get_total_time():.2f} ms")
         lines.append("")
 
         lines.append("---")
