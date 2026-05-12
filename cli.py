@@ -335,34 +335,36 @@ def split_doc(input_file, output_dir, max_chars, split_level, dry_run):
 def search(query, file_type, context_lines, regex, case_sensitive, max_results, source_dir, no_highlight, stats_only):
     """搜索内容"""
     output = CLIOutput()
-    searcher = ContentSearcher(
-        source_dir=source_dir,
-        use_regex=regex,
-        case_sensitive=case_sensitive
-    )
+    searcher = ContentSearcher(source_dir=source_dir)
 
     results = searcher.search(
         query=query,
         file_type=file_type,
         context_lines=context_lines,
-        max_results=max_results
+        max_results=max_results,
+        use_regex=regex,
+        case_sensitive=case_sensitive
     )
 
     if stats_only:
         output.stats({
-            '匹配文件数': len(results),
-            '总匹配数': sum(len(r['matches']) for r in results)
+            '匹配数': len(results)
         })
         return
 
     output.header(f"搜索结果: '{query}'")
-    for result in results:
-        output.subheader(result['file'])
-        for match in result['matches']:
-            output.info(f"  行 {match['line_number']}: {match['line']}")
+
+    # 按文件分组显示
+    current_file = None
+    for match in results:
+        if current_file != match.file_path:
+            current_file = match.file_path
+            output.subheader(str(match.file_path))
+
+        output.info(f"  行 {match.line_number}: {match.line_content.strip()}")
 
     output.separator()
-    output.info(f"找到 {len(results)} 个文件，共 {sum(len(r['matches']) for r in results)} 处匹配")
+    output.info(f"找到 {len(results)} 处匹配")
 
 
 @cli.command()
