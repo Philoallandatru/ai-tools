@@ -12,7 +12,7 @@ from .error_handler import ErrorHandler
 class JiraCrawler:
     """Jira 爬虫 - 爬取 Jira issues 和附件"""
 
-    def __init__(self, url: str, token: str, error_handler: ErrorHandler, username: Optional[str] = None, is_cloud: bool = True):
+    def __init__(self, url: str, token: str, error_handler: ErrorHandler, username: Optional[str] = None, is_cloud: bool = True, max_results_per_page: int = 50):
         """
         初始化 Jira 爬虫
 
@@ -22,6 +22,7 @@ class JiraCrawler:
             error_handler: 错误处理器
             username: 用户名 (仅 Cloud 需要)
             is_cloud: 是否为 Cloud 版本 (默认 True)
+            max_results_per_page: 每页获取的最大结果数 (默认 50)
         """
         if is_cloud:
             # Cloud 版本需要 username + API token
@@ -31,6 +32,7 @@ class JiraCrawler:
             self.client = Jira(url=url, token=token, cloud=False)
         self.error_handler = error_handler
         self.base_url = url
+        self.max_results_per_page = max_results_per_page
 
     def crawl_project(
         self,
@@ -55,7 +57,7 @@ class JiraCrawler:
             # 使用 JQL 查询所有 issues，获取所有字段
             jql = f'project = {project_key} ORDER BY updated DESC'
             start_at = 0
-            max_results = 50
+            max_results = self.max_results_per_page
 
             # 获取状态
             state = storage.get_jira_state(source_name, project_key)

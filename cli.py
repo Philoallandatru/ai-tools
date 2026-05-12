@@ -62,7 +62,7 @@ def _sync_confluence_space(source: Dict[str, Any], space_key: str, is_cloud: boo
     return crawler.crawl_space(source['name'], space_key, storage)
 
 
-def _sync_jira_project(source: Dict[str, Any], project_key: str, is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler) -> Dict[str, int]:
+def _sync_jira_project(source: Dict[str, Any], project_key: str, is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler, max_results_per_page: int = 50) -> Dict[str, int]:
     """
     同步单个 Jira project（用于并发执行）
 
@@ -72,6 +72,7 @@ def _sync_jira_project(source: Dict[str, Any], project_key: str, is_cloud: bool,
         is_cloud: 是否为 Cloud 版本
         storage: 存储管理器
         error_handler: 错误处理器
+        max_results_per_page: 每页获取的最大结果数
 
     Returns:
         统计信息 {'issues': int, 'attachments': int}
@@ -81,7 +82,8 @@ def _sync_jira_project(source: Dict[str, Any], project_key: str, is_cloud: bool,
         source['api_token'],
         error_handler,
         username=source.get('username'),
-        is_cloud=is_cloud
+        is_cloud=is_cloud,
+        max_results_per_page=max_results_per_page
     )
     return crawler.crawl_project(source['name'], project_key, storage)
 
@@ -193,8 +195,11 @@ def sync(config, source, type):
         error_handler = ErrorHandler(**cfg['error_handling'])
 
         # 获取并发数配置
-        max_workers = cfg.get('sync', {}).get('max_workers', 5)
+        max_workers = cfg.get('performance', {}).get('max_workers', 10)
         max_workers = min(max_workers, 10)  # 限制最大并发数为 10
+
+        # 获取每页结果数配置
+        max_results_per_page = cfg.get('performance', {}).get('max_results_per_page', 50)
 
         # 根据参数过滤要同步的数据源
         sources_to_sync = filter_sources(cfg['sources'], source, type)
@@ -272,7 +277,8 @@ def sync(config, source, type):
                         task['project_key'],
                         task['is_cloud'],
                         storage,
-                        error_handler
+                        error_handler,
+                        max_results_per_page
                     )
                     futures[future] = task
 

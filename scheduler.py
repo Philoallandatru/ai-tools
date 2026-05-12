@@ -31,6 +31,9 @@ def sync_all(config_path: str = "config.yaml"):
         storage = StorageManager(cfg['output']['base_dir'], cfg['sync']['state_file'])
         error_handler = ErrorHandler(**cfg['error_handling'])
 
+        # 获取性能配置
+        max_results_per_page = cfg.get('performance', {}).get('max_results_per_page', 50)
+
         # 获取所有数据源
         sources_to_sync = filter_sources(cfg['sources'], None, 'all')
 
@@ -56,9 +59,11 @@ def sync_all(config_path: str = "config.yaml"):
                 print(f"\nSource: {src['name']}")
                 crawler = JiraCrawler(
                     src['url'],
-                    src['username'],
                     src['api_token'],
-                    error_handler
+                    error_handler,
+                    username=src.get('username'),
+                    is_cloud=True,
+                    max_results_per_page=max_results_per_page
                 )
                 for project in src['projects']:
                     print(f"  Processing project: {project['key']}")
@@ -76,13 +81,23 @@ def sync_all(config_path: str = "config.yaml"):
         logging.error(f"Sync failed: {str(e)}")
 
 
-def run_scheduler(config_path: str = "config.yaml", sync_time: str = "09:00"):
+def run_scheduler(config_path: str = "config.yaml"):
     """运行定时调度器
 
     Args:
         config_path: 配置文件路径
-        sync_time: 每日同步时间（HH:MM 格式）
     """
+    # 加载配置
+    cfg = load_config(config_path)
+    scheduler_config = cfg.get('scheduler', {})
+
+    sync_time = scheduler_config.get('sync_time', '02:00')
+    enabled = scheduler_config.get('enabled', True)
+
+    if not enabled:
+        print("Scheduler is disabled in config")
+        return
+
     print(f"Scheduler started. Daily sync scheduled at {sync_time}")
     print(f"Config file: {config_path}")
     print(f"Press Ctrl+C to stop\n")
@@ -122,11 +137,6 @@ if __name__ == "__main__":
         help="配置文件路径 (默认: config.yaml)"
     )
     parser.add_argument(
-        "--time",
-        default="09:00",
-        help="每日同步时间 HH:MM 格式 (默认: 09:00)"
-    )
-    parser.add_argument(
         "--once",
         action="store_true",
         help="只执行一次同步，不启动定时服务"
@@ -139,4 +149,4 @@ if __name__ == "__main__":
         sync_all(args.config)
     else:
         # 启动定时服务
-        run_scheduler(args.config, args.time)
+        run_scheduler(args.config)
