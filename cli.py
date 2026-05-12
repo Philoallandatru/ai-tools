@@ -864,6 +864,7 @@ def generate_report(report_type, start_date, end_date, output, source_dir, outpu
     try:
         from datetime import datetime
         import json
+        import yaml
 
         # 解析日期
         start = None
@@ -883,8 +884,15 @@ def generate_report(report_type, start_date, end_date, output, source_dir, outpu
                 click.echo(f"错误: 无效的结束日期格式: {end_date}，应为 YYYY-MM-DD", err=True)
                 return
 
+        # 加载配置文件
+        config = {}
+        config_path = Path('config.yaml')
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f) or {}
+
         # 创建报告生成器
-        generator = ReportGenerator(source_dir)
+        generator = ReportGenerator(source_dir, config)
 
         # 生成报告
         report_name_map = {'daily': '日报', 'weekly': '周报', 'monthly': '月报'}

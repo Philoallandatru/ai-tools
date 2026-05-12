@@ -12,14 +12,17 @@ from collections import defaultdict
 class ReportGenerator:
     """报告生成器 - 生成周报和日报"""
 
-    def __init__(self, source_dir: str = './sources'):
+    def __init__(self, source_dir: str = './sources', config: Optional[Dict[str, Any]] = None):
         """
         初始化报告生成器
 
         Args:
             source_dir: 源文件目录
+            config: 配置字典（可选）
         """
         self.source_dir = Path(source_dir)
+        self.config = config or {}
+        self.fixed_issues = self.config.get('reports', {}).get('fixed_issues', [])
 
     def generate_report(
         self,
@@ -81,7 +84,9 @@ class ReportGenerator:
             Jira 数据字典
         """
         jira_pattern = re.compile(r'^[A-Z]+-\d+\.md$')
-        issues = []
+        time_range_issues = []
+        fixed_issues = []
+        fixed_issue_keys = set(self.fixed_issues)
 
         for md_file in self.source_dir.rglob('*.md'):
             if not jira_pattern.match(md_file.name):
@@ -109,26 +114,44 @@ class ReportGenerator:
                 if create_match:
                     create_date = datetime.strptime(create_match.group(1), '%Y-%m-%d').date()
 
+                issue_data = {
+                    'key': issue_key,
+                    'title': title_match.group(1).strip() if title_match else 'N/A',
+                    'status': status_match.group(1).strip() if status_match else 'N/A',
+                    'priority': priority_match.group(1).strip() if priority_match else 'N/A',
+                    'type': type_match.group(1).strip() if type_match else 'N/A',
+                    'assignee': assignee_match.group(1).strip() if assignee_match else 'Unassigned',
+                    'created_date': create_date.isoformat() if create_date else None,
+                    'updated_date': update_date.isoformat() if update_date else None,
+                    'is_new': False,
+                    'is_updated': False
+                }
+
                 # 判断是否在时间范围内
                 is_new = create_date and start_date <= create_date <= end_date
                 is_updated = update_date and start_date <= update_date <= end_date
 
                 if is_new or is_updated:
-                    issues.append({
-                        'key': issue_key,
-                        'title': title_match.group(1).strip() if title_match else 'N/A',
-                        'status': status_match.group(1).strip() if status_match else 'N/A',
-                        'priority': priority_match.group(1).strip() if priority_match else 'N/A',
-                        'type': type_match.group(1).strip() if type_match else 'N/A',
-                        'assignee': assignee_match.group(1).strip() if assignee_match else 'Unassigned',
-                        'created_date': create_date.isoformat() if create_date else None,
-                        'updated_date': update_date.isoformat() if update_date else None,
-                        'is_new': is_new,
-                        'is_updated': is_updated
-                    })
+                    issue_data['is_new'] = is_new
+                    issue_data['is_updated'] = is_updated
+                    time_range_issues.append(issue_data)
+
+                # 收集固定跟踪的issues
+                if issue_key in fixed_issue_keys:
+                    fixed_issues.append(issue_data)
 
             except Exception:
                 continue
+
+        # 合并所有issues（去重）
+        all_issues_dict = {}
+        for issue in time_range_issues:
+            all_issues_dict[issue['key']] = issue
+        for issue in fixed_issues:
+            if issue['key'] not in all_issues_dict:
+                all_issues_dict[issue['key']] = issue
+
+        all_issues = list(all_issues_dict.values())
 
         # 按状态分组
         by_status = defaultdict(list)
@@ -137,7 +160,7 @@ class ReportGenerator:
         new_issues = []
         updated_issues = []
 
-        for issue in issues:
+        for issue in time_range_issues:
             by_status[issue['status']].append(issue)
             by_priority[issue['priority']].append(issue)
             by_type[issue['type']].append(issue)
@@ -147,7 +170,7 @@ class ReportGenerator:
                 updated_issues.append(issue)
 
         return {
-            'total': len(issues),
+            'total': len(time_range_issues),
             'new': len(new_issues),
             'updated': len(updated_issues),
             'by_status': dict(by_status),
@@ -155,7 +178,9 @@ class ReportGenerator:
             'by_type': dict(by_type),
             'new_issues': new_issues,
             'updated_issues': updated_issues,
-            'all_issues': issues
+            'all_issues': all_issues,
+            'time_range_issues': time_range_issues,
+            'fixed_issues': fixed_issues
         }
 
     def _collect_confluence_data(self, start_date: date, end_date: date) -> Dict[str, Any]:
@@ -285,9 +310,11 @@ class ReportGenerator:
         lines.append(f"- **更新**: {summary['total_updated']} 项")
         lines.append("")
 
-        # Jira 部分
+        # Jira 部分 - 时间范围内的活动
         jira = report['jira']
-        lines.append("## 🎯 Jira Issues")
+        lines.append("## 🎯 时间范围内的活动")
+        lines.append("")
+        lines.append("### Jira Issues")
         lines.append("")
         lines.append(f"- **总计**: {jira['total']} 个 issues")
         lines.append(f"- **新增**: {jira['new']} 个")
@@ -296,7 +323,7 @@ class ReportGenerator:
 
         # 按状态统计
         if jira['by_status']:
-            lines.append("### 按状态分布")
+            lines.append("#### 按状态分布")
             lines.append("")
             for status, issues in sorted(jira['by_status'].items(), key=lambda x: len(x[1]), reverse=True):
                 lines.append(f"- **{status}**: {len(issues)} 个")
@@ -304,7 +331,7 @@ class ReportGenerator:
 
         # 按优先级统计
         if jira['by_priority']:
-            lines.append("### 按优先级分布")
+            lines.append("#### 按优先级分布")
             lines.append("")
             priority_order = {'Highest': 0, 'High': 1, 'Medium': 2, 'Low': 3}
             sorted_priorities = sorted(
@@ -317,7 +344,7 @@ class ReportGenerator:
 
         # 新增 issues
         if jira['new_issues']:
-            lines.append("### 🆕 新增 Issues")
+            lines.append("#### 🆕 新增 Issues")
             lines.append("")
             for issue in jira['new_issues']:
                 lines.append(f"- **[{issue['key']}]** {issue['title']}")
@@ -327,7 +354,7 @@ class ReportGenerator:
 
         # 更新的 issues
         if jira['updated_issues']:
-            lines.append("### 🔄 更新的 Issues")
+            lines.append("#### 🔄 更新的 Issues")
             lines.append("")
             for issue in jira['updated_issues'][:10]:  # 最多显示 10 个
                 lines.append(f"- **[{issue['key']}]** {issue['title']}")
@@ -339,7 +366,7 @@ class ReportGenerator:
         # Confluence 部分
         confluence = report['confluence']
         if confluence['total'] > 0:
-            lines.append("## 📝 Confluence 页面")
+            lines.append("### 📝 Confluence 页面")
             lines.append("")
             lines.append(f"- **总计**: {confluence['total']} 个页面")
             lines.append(f"- **新增**: {confluence['new']} 个")
@@ -348,7 +375,7 @@ class ReportGenerator:
 
             # 新增页面
             if confluence['new_pages']:
-                lines.append("### 🆕 新增页面")
+                lines.append("#### 🆕 新增页面")
                 lines.append("")
                 for page in confluence['new_pages']:
                     lines.append(f"- {page['title']}")
@@ -356,12 +383,32 @@ class ReportGenerator:
 
             # 更新的页面
             if confluence['updated_pages']:
-                lines.append("### 🔄 更新的页面")
+                lines.append("#### 🔄 更新的页面")
                 lines.append("")
                 for page in confluence['updated_pages'][:10]:
                     lines.append(f"- {page['title']}")
                 if len(confluence['updated_pages']) > 10:
                     lines.append(f"  - ... 还有 {len(confluence['updated_pages']) - 10} 个更新")
+                lines.append("")
+
+        # 固定跟踪的Issues部分
+        if jira.get('fixed_issues'):
+            lines.append("## 📌 固定跟踪的 Issues")
+            lines.append("")
+            lines.append(f"**总计**: {len(jira['fixed_issues'])} 个重点关注的 issues")
+            lines.append("")
+
+            for issue in jira['fixed_issues']:
+                lines.append(f"### [{issue['key']}] {issue['title']}")
+                lines.append("")
+                lines.append(f"- **状态**: {issue['status']}")
+                lines.append(f"- **优先级**: {issue['priority']}")
+                lines.append(f"- **类型**: {issue['type']}")
+                lines.append(f"- **经办人**: {issue['assignee']}")
+                if issue['created_date']:
+                    lines.append(f"- **创建时间**: {issue['created_date']}")
+                if issue['updated_date']:
+                    lines.append(f"- **最后更新**: {issue['updated_date']}")
                 lines.append("")
 
         # 页脚
