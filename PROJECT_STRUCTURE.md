@@ -9,7 +9,10 @@ ai-tools/
 │   ├── confluence.py          # Confluence 爬虫实现
 │   ├── jira.py               # Jira 爬虫实现
 │   ├── storage.py            # 存储管理（Markdown 生成）
-│   └── error_handler.py      # 错误处理和重试逻辑
+│   ├── error_handler.py      # 错误处理和重试逻辑
+│   ├── doc_splitter.py       # 文档拆分工具
+│   ├── searcher.py           # 全文搜索引擎
+│   └── doc_analyzer.py       # 文档分析器
 │
 ├── docs/                      # 项目文档
 │   ├── DESIGN.md             # 系统设计文档
@@ -17,10 +20,21 @@ ai-tools/
 │   ├── USAGE.md              # 详细使用说明
 │   ├── SCHEDULER.md          # 定时任务配置
 │   ├── WIKI_INTEGRATION.md   # Wiki 集成指南
-│   └── WIKI_SETUP_COMPLETE.md # Wiki 集成完成总结
+│   ├── WIKI_SETUP_COMPLETE.md # Wiki 集成完成总结
+│   └── DOC_ANALYZER_DESIGN.md # 文档分析器设计
 │
-├── test-sources/              # 测试用的示例文件
-│   └── nvme.md
+├── tests/                     # 测试文件
+│   ├── integration/          # 集成测试
+│   ├── unit/                 # 单元测试
+│   ├── fixtures/             # 测试固件
+│   ├── outputs/              # 测试输出文件
+│   ├── test-sources/         # 测试用源文件
+│   ├── test_reports/         # 测试报告
+│   ├── test-config.yaml      # 测试配置
+│   └── conftest.py           # pytest 配置
+│
+├── configs/                   # 配置文件目录
+│   └── doc_analysis_config.yaml  # 文档分析配置
 │
 ├── cli.py                     # CLI 命令入口
 ├── scheduler.py               # 定时任务调度器
@@ -29,7 +43,6 @@ ai-tools/
 │
 ├── config.example.yaml        # Atlassian 配置模板
 ├── .env.example              # 环境变量配置模板
-├── test-config.yaml          # 测试配置
 │
 ├── pyproject.toml            # Python 项目配置（uv）
 ├── requirements.txt          # Python 依赖列表
@@ -48,6 +61,7 @@ wiki/                         # 编译后的知识库（341 个概念页面）
   ├── concepts/              # 概念页面
   ├── index.md               # 索引
   └── MOC.md                 # 概念地图
+reports/                     # 分析报告输出
 .llmwiki/                    # Wiki 编译缓存和状态
 .venv/                       # Python 虚拟环境
 __pycache__/                 # Python 缓存
@@ -55,6 +69,7 @@ config.yaml                  # 实际配置（包含敏感信息）
 .env                         # 环境变量（包含 API 密钥）
 .atlassian-sync-state.json   # 同步状态
 sync-errors.log              # 错误日志
+.claude/                     # Claude Code 工作目录
 ```
 
 ## 文件说明
@@ -109,7 +124,7 @@ sync-errors.log              # 错误日志
 - ✅ 所有文档（docs/）
 - ✅ 配置模板（config.example.yaml, .env.example）
 - ✅ 项目配置（pyproject.toml, requirements.txt）
-- ✅ 测试文件（test-sources/, test-config.yaml）
+- ✅ 测试框架（tests/）
 - ✅ README 和 .gitignore
 
 ### 未提交的文件（敏感或生成的）
@@ -118,7 +133,9 @@ sync-errors.log              # 错误日志
 - ❌ .env（包含 API 密钥）
 - ❌ sources/（爬取的数据）
 - ❌ wiki/（生成的知识库）
+- ❌ reports/（分析报告）
 - ❌ .llmwiki/（编译缓存）
+- ❌ .claude/（Claude Code 工作目录）
 - ❌ 日志文件和状态文件
 
 ## 下一步操作

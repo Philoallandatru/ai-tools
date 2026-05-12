@@ -180,9 +180,16 @@ ai-tools/
 │   ├── error_handler.py # 错误处理
 │   ├── doc_splitter.py  # 文档拆分工具
 │   ├── searcher.py      # 全文搜索引擎
-│   └── doc_analyzer.py  # 文档分析器（NEW!）
-├── configs/             # 配置文件目录（NEW!）
+│   └── doc_analyzer.py  # 文档分析器
+├── configs/             # 配置文件目录
 │   └── doc_analysis_config.yaml  # 文档分析配置
+├── tests/               # 测试文件
+│   ├── integration/     # 集成测试
+│   ├── unit/           # 单元测试
+│   ├── fixtures/       # 测试固件
+│   ├── outputs/        # 测试输出
+│   ├── test-sources/   # 测试用源文件
+│   └── test_reports/   # 测试报告
 ├── sources/             # 爬取的源文件（57 个 Markdown）
 ├── wiki/                # 编译后的知识库
 │   ├── concepts/        # 341 个概念页面
@@ -197,7 +204,7 @@ ai-tools/
 │   ├── SCHEDULER.md    # 定时任务配置
 │   ├── WIKI_INTEGRATION.md      # Wiki 集成文档
 │   ├── WIKI_SETUP_COMPLETE.md   # Wiki 完成总结
-│   └── DOC_ANALYZER_DESIGN.md   # 文档分析器设计（NEW!）
+│   └── DOC_ANALYZER_DESIGN.md   # 文档分析器设计
 ├── cli.py              # CLI 命令入口
 ├── scheduler.py        # 定时任务调度器
 ├── health-check.py     # 健康检查脚本
