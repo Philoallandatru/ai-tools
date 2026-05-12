@@ -36,7 +36,9 @@ class ConfluenceCrawler:
         self,
         source_name: str,
         space_key: str,
-        storage: StorageManager
+        storage: StorageManager,
+        max_pages: Optional[int] = None,
+        root_page_id: Optional[str] = None
     ) -> Dict[str, int]:
         """
         爬取指定 space 的所有页面
@@ -45,6 +47,8 @@ class ConfluenceCrawler:
             source_name: 数据源名称
             space_key: Space key
             storage: 存储管理器
+            max_pages: 可选，限制拉取的最大页面数（用于测试）
+            root_page_id: 可选，只抓取指定页面及其子页面
 
         Returns:
             统计信息字典 {'pages': int, 'attachments': int, 'skipped': int, 'total': int}
@@ -56,46 +60,16 @@ class ConfluenceCrawler:
             print(f"\n[Confluence] 正在扫描 space {space_key} 的页面...")
             print(f"[Confluence] 模式: {'Cloud' if self.client.cloud else 'Server'}")
             print(f"[Confluence] URL: {self.base_url}")
+            if max_pages:
+                print(f"[Confluence] 限制: 最多拉取 {max_pages} 个页面")
+            if root_page_id:
+                print(f"[Confluence] 限制: 只抓取页面 {root_page_id} 及其子页面")
 
-            # 获取 space 的所有页面（使用手动分页确保获取所有页面）
-            # 注意：直接使用 get_all_pages_from_space_raw 而不是 get_all_pages_from_space
-            # 因为后者有一个 bug：使用 <= limit 而不是 < limit 作为终止条件
-            pages = []
-            start = 0
-            limit = 100  # 每页获取 100 个，减少 API 调用次数
-
-            print(f"[Confluence] 开始分页获取所有页面...")
-
-            while True:
-                try:
-                    # 直接调用 raw 方法来绕过库的 bug
-                    response = self.client.get_all_pages_from_space_raw(
-                        space=space_key,
-                        start=start,
-                        limit=limit,
-                        expand='version'
-                    )
-
-                    results = response.get('results', [])
-
-                    if not results:
-                        print(f"[Confluence] 第 {start//limit + 1} 页: 0 个结果，分页结束")
-                        break
-
-                    pages.extend(results)
-                    print(f"[Confluence] 第 {start//limit + 1} 页: {len(results)} 个结果 (累计: {len(pages)})")
-
-                    # 如果返回结果少于 limit，说明已经是最后一页
-                    if len(results) < limit:
-                        print(f"[Confluence] 已到达最后一页")
-                        break
-
-                    start += limit
-
-                except Exception as e:
-                    print(f"[Confluence] 分页获取失败 (start={start}): {str(e)}")
-                    print(f"[Confluence] 已获取 {len(pages)} 个页面，继续处理...")
-                    break
+            # 根据是否指定根页面选择不同的获取方式
+            if root_page_id:
+                pages = self._get_page_tree(root_page_id, max_pages)
+            else:
+                pages = self._get_all_pages_from_space(space_key, max_pages)
 
             # 调试信息
             print(f"[Confluence] API 返回的页面数量: {len(pages) if pages else 0}")
@@ -324,3 +298,117 @@ class ConfluenceCrawler:
             }
 
         return download()
+
+    def _get_all_pages_from_space(self, space_key: str, max_pages: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        获取 space 的所有页面（使用手动分页确保获取所有页面）
+
+        Args:
+            space_key: Space key
+            max_pages: 可选，限制获取的最大页面数
+
+        Returns:
+            页面列表
+        """
+        # 注意：直接使用 get_all_pages_from_space_raw 而不是 get_all_pages_from_space
+        # 因为后者有一个 bug：使用 <= limit 而不是 < limit 作为终止条件
+        pages = []
+        start = 0
+        limit = 100  # 每页获取 100 个，减少 API 调用次数
+
+        print(f"[Confluence] 开始分页获取所有页面...")
+
+        while True:
+            try:
+                # 直接调用 raw 方法来绕过库的 bug
+                response = self.client.get_all_pages_from_space_raw(
+                    space=space_key,
+                    start=start,
+                    limit=limit,
+                    expand='version'
+                )
+
+                results = response.get('results', [])
+
+                if not results:
+                    print(f"[Confluence] 第 {start//limit + 1} 页: 0 个结果，分页结束")
+                    break
+
+                pages.extend(results)
+                print(f"[Confluence] 第 {start//limit + 1} 页: {len(results)} 个结果 (累计: {len(pages)})")
+
+                # 检查是否达到最大页面数限制
+                if max_pages and len(pages) >= max_pages:
+                    pages = pages[:max_pages]
+                    print(f"[Confluence] 已达到最大页面数限制 ({max_pages})，停止获取")
+                    break
+
+                # 如果返回结果少于 limit，说明已经是最后一页
+                if len(results) < limit:
+                    print(f"[Confluence] 已到达最后一页")
+                    break
+
+                start += limit
+
+            except Exception as e:
+                print(f"[Confluence] 分页获取失败 (start={start}): {str(e)}")
+                print(f"[Confluence] 已获取 {len(pages)} 个页面，继续处理...")
+                break
+
+        return pages
+
+    def _get_page_tree(self, root_page_id: str, max_pages: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        递归获取指定页面及其所有子页面
+
+        Args:
+            root_page_id: 根页面 ID
+            max_pages: 可选，限制获取的最大页面数
+
+        Returns:
+            页面列表（包含根页面和所有子页面）
+        """
+        pages = []
+        visited = set()
+
+        print(f"[Confluence] 开始获取页面树 (根页面: {root_page_id})...")
+
+        def fetch_page_and_children(page_id: str):
+            """递归获取页面及其子页面"""
+            if page_id in visited:
+                return
+            if max_pages and len(pages) >= max_pages:
+                return
+
+            visited.add(page_id)
+
+            try:
+                # 获取页面基本信息
+                page = self.client.get_page_by_id(page_id, expand='version')
+                pages.append(page)
+                print(f"[Confluence] 获取页面: {page['title']} (ID: {page_id}) - 累计: {len(pages)}")
+
+                # 获取子页面
+                children = self.client.get_page_child_by_type(page_id, type='page', start=0, limit=100)
+
+                if children and isinstance(children, list):
+                    child_list = children
+                elif children and isinstance(children, dict):
+                    child_list = children.get('results', [])
+                else:
+                    child_list = []
+
+                # 递归处理每个子页面
+                for child in child_list:
+                    if max_pages and len(pages) >= max_pages:
+                        print(f"[Confluence] 已达到最大页面数限制 ({max_pages})，停止获取")
+                        return
+                    fetch_page_and_children(child['id'])
+
+            except Exception as e:
+                print(f"[Confluence] 获取页面 {page_id} 失败: {str(e)}")
+
+        fetch_page_and_children(root_page_id)
+        print(f"[Confluence] 页面树获取完成，共 {len(pages)} 个页面")
+
+        return pages

@@ -38,13 +38,13 @@ from crawler.analyzers.comment_analyzer import CommentAnalyzer
 from crawler.analyzers.action_recommender import ActionRecommender
 
 
-def _sync_confluence_space(source: Dict[str, Any], space_key: str, is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler) -> Dict[str, int]:
+def _sync_confluence_space(source: Dict[str, Any], space_config: Dict[str, Any], is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler) -> Dict[str, int]:
     """
     同步单个 Confluence space（用于并发执行）
 
     Args:
         source: 数据源配置
-        space_key: Space key
+        space_config: Space 配置（包含 key, name, max_pages, root_page_id）
         is_cloud: 是否为 Cloud 版本
         storage: 存储管理器
         error_handler: 错误处理器
@@ -59,7 +59,13 @@ def _sync_confluence_space(source: Dict[str, Any], space_key: str, is_cloud: boo
         username=source.get('username'),
         is_cloud=is_cloud
     )
-    return crawler.crawl_space(source['name'], space_key, storage)
+    return crawler.crawl_space(
+        source['name'],
+        space_config['key'],
+        storage,
+        max_pages=space_config.get('max_pages'),
+        root_page_id=space_config.get('root_page_id')
+    )
 
 
 def _sync_jira_project(source: Dict[str, Any], project_key: str, is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler, max_results_per_page: int = 50) -> Dict[str, int]:
@@ -222,7 +228,7 @@ def sync(config, source, type):
                     tasks.append({
                         'type': 'confluence',
                         'source': src,
-                        'space_key': space['key'],
+                        'space_config': space,
                         'is_cloud': is_cloud
                     })
 
@@ -233,7 +239,7 @@ def sync(config, source, type):
                     future = executor.submit(
                         _sync_confluence_space,
                         task['source'],
-                        task['space_key'],
+                        task['space_config'],
                         task['is_cloud'],
                         storage,
                         error_handler
@@ -249,9 +255,9 @@ def sync(config, source, type):
                         stats['confluence']['attachments'] += result['attachments']
                         stats['confluence']['skipped'] += result.get('skipped', 0)
                         stats['confluence']['total'] += result.get('total', 0)
-                        click.echo(f"  ✓ {task['source']['name']}/{task['space_key']}: {result['pages']} pages, {result['attachments']} attachments")
+                        click.echo(f"  ✓ {task['source']['name']}/{task['space_config']['key']}: {result['pages']} pages, {result['attachments']} attachments")
                     except Exception as e:
-                        click.echo(f"  ✗ {task['source']['name']}/{task['space_key']}: {str(e)}", err=True)
+                        click.echo(f"  ✗ {task['source']['name']}/{task['space_config']['key']}: {str(e)}", err=True)
 
         # 同步 Jira
         if sources_to_sync['jira']:

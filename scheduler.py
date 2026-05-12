@@ -58,7 +58,13 @@ def sync_all(config_path: str = "config.yaml"):
                 )
                 for space in src['spaces']:
                     print(f"  Processing space: {space['key']}")
-                    result = crawler.crawl_space(src['name'], space['key'], storage)
+                    result = crawler.crawl_space(
+                        src['name'],
+                        space['key'],
+                        storage,
+                        max_pages=space.get('max_pages'),
+                        root_page_id=space.get('root_page_id')
+                    )
                     stats['confluence']['pages'] += result['pages']
                     stats['confluence']['attachments'] += result['attachments']
                     stats['confluence']['skipped'] += result.get('skipped', 0)
