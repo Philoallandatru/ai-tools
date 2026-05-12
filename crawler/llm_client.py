@@ -11,26 +11,28 @@ class BaseLLMClient(ABC):
     """LLM 客户端基类"""
 
     @abstractmethod
-    def generate(self, prompt: str, max_tokens: int = 2000) -> str:
+    def generate(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.7) -> str:
         """
         生成文本
 
         Args:
             prompt: 输入提示词
             max_tokens: 最大生成 token 数
+            temperature: 温度参数（0.0-1.0），控制生成的随机性
 
         Returns:
             生成的文本
         """
         pass
 
-    def generate_with_messages(self, messages: list, max_tokens: int = 2000) -> str:
+    def generate_with_messages(self, messages: list, max_tokens: int = 2000, temperature: float = 0.7) -> str:
         """
         使用消息列表生成文本（支持 vision API）
 
         Args:
             messages: 消息列表（OpenAI 格式）
             max_tokens: 最大生成 token 数
+            temperature: 温度参数（0.0-1.0），控制生成的随机性
 
         Returns:
             生成的文本
@@ -46,25 +48,45 @@ class BaseLLMClient(ABC):
                         text_parts.append(item['text'])
 
         prompt = '\n'.join(text_parts)
-        return self.generate(prompt, max_tokens)
+        return self.generate(prompt, max_tokens, temperature)
 
 
 class MockLLMClient(BaseLLMClient):
     """Mock LLM 客户端 - 用于测试"""
 
-    def generate(self, prompt: str, max_tokens: int = 2000) -> str:
+    def generate(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.7) -> str:
         """
         返回 Mock 响应
 
         Args:
             prompt: 输入提示词
             max_tokens: 最大生成 token 数
+            temperature: 温度参数（忽略）
 
         Returns:
             Mock 响应文本
         """
+        # 优先匹配 JSON 提取（问题摘要）
+        if ("提取" in prompt or "extract" in prompt.lower()) and ("json" in prompt.lower() or "客户名称" in prompt):
+            # 问题摘要提取
+            return """```json
+{
+  "customer": "Micron",
+  "test_project": "SSD1250, Sanitize",
+  "test_platform": "Platform: AMD Ryzen 7000 Series, OS: Ubuntu 22.04 LTS, Form Factor: M.2 2280",
+  "test_steps": [
+    "发起 Sanitize (Block Erase) 操作",
+    "轮询 Sanitize Status，在进度 30%-50% 期间触发 NVM Reset",
+    "等待设备重新枚举并 Ready",
+    "尝试进行 4K Random Write"
+  ],
+  "root_cause": "固件未实现 CSTS.RDY 等待机制",
+  "fix_solution": "在 Sanitize Block Erase 阶段检测到 NVM Reset 时，先完成当前 block 的 erase，再进入 reset handler"
+}
+```"""
+
         # 根据提示词关键字返回不同的 mock 响应
-        if "根因分析" in prompt or "root cause" in prompt.lower():
+        elif "根因分析" in prompt or "root cause" in prompt.lower():
             return """根因分析：
 1. 直接原因：NVMe Reset 期间状态机未正确处理 CC.EN 清零
 2. 深层原因：固件未实现 CSTS.RDY 等待机制
@@ -112,13 +134,14 @@ class LLMStudioClient(BaseLLMClient):
         self.base_url = base_url.rstrip('/')
         self.model = model
 
-    def generate(self, prompt: str, max_tokens: int = 2000) -> str:
+    def generate(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.7) -> str:
         """
         调用 LLMStudio API 生成文本
 
         Args:
             prompt: 输入提示词
             max_tokens: 最大生成 token 数
+            temperature: 温度参数（0.0-1.0），控制生成的随机性
 
         Returns:
             生成的文本
@@ -127,15 +150,16 @@ class LLMStudioClient(BaseLLMClient):
             requests.RequestException: API 调用失败
         """
         messages = [{"role": "user", "content": prompt}]
-        return self.generate_with_messages(messages, max_tokens)
+        return self.generate_with_messages(messages, max_tokens, temperature)
 
-    def generate_with_messages(self, messages: list, max_tokens: int = 2000) -> str:
+    def generate_with_messages(self, messages: list, max_tokens: int = 2000, temperature: float = 0.7) -> str:
         """
         使用消息列表生成文本（支持 vision API）
 
         Args:
             messages: 消息列表（OpenAI 格式）
             max_tokens: 最大生成 token 数
+            temperature: 温度参数（0.0-1.0），控制生成的随机性
 
         Returns:
             生成的文本
@@ -151,7 +175,7 @@ class LLMStudioClient(BaseLLMClient):
                     "model": self.model,
                     "messages": messages,
                     "max_tokens": max_tokens,
-                    "temperature": 0.7
+                    "temperature": temperature
                 },
                 headers={"Content-Type": "application/json; charset=utf-8"},
                 timeout=120  # 增加到 120 秒

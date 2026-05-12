@@ -3,6 +3,7 @@
 """
 
 import re
+import json
 from typing import Dict, Any, List, Optional
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
@@ -17,11 +18,12 @@ class IssueSummaryAnalyzer(BaseAnalyzer):
         初始化问题摘要分析器
 
         Args:
-            llm_client: LLM 客户端（本分析器不使用，但保持接口一致）
+            llm_client: LLM 客户端
             config: 配置字典
         """
         self.llm_client = llm_client
         self.config = config or {}
+        self.use_llm = self.config.get('use_llm', True)  # 默认使用 LLM
 
     def get_name(self) -> str:
         return "issue_summary"
@@ -37,6 +39,15 @@ class IssueSummaryAnalyzer(BaseAnalyzer):
         Returns:
             包含摘要信息的字典
         """
+        # 优先使用 LLM 综合提取
+        if self.use_llm:
+            llm_result = self._extract_with_llm(jira_data, context)
+            if llm_result:
+                # LLM 提取成功，补充代码覆盖检查
+                llm_result['code_coverage'] = self._extract_code_coverage(context)
+                return llm_result
+
+        # LLM 失败或禁用，使用 regex fallback
         result = {
             'customer': self._extract_customer(jira_data, context),
             'test_project': self._extract_test_project(jira_data),
@@ -48,6 +59,149 @@ class IssueSummaryAnalyzer(BaseAnalyzer):
         }
 
         return result
+
+    def _extract_with_llm(self, jira_data: Dict[str, Any], context: AnalysisContext) -> Optional[Dict[str, Any]]:
+        """
+        使用 LLM 综合提取所有字段
+
+        Args:
+            jira_data: Jira 数据
+            context: 分析上下文
+
+        Returns:
+            提取结果字典，失败返回 None
+        """
+        # 构建 prompt
+        prompt = self._build_extraction_prompt(jira_data, context)
+
+        try:
+            # 调用 LLM
+            response = self.llm_client.generate(
+                prompt=prompt,
+                max_tokens=self.config.get('max_tokens', 1000),
+                temperature=0.3  # 使用较低温度保证稳定性
+            )
+
+            if not response:
+                return None
+
+            # 解析 JSON 响应
+            result = self._parse_llm_response(response)
+            return result
+
+        except Exception as e:
+            print(f"LLM 提取失败: {e}")
+            return None
+
+    def _build_extraction_prompt(self, jira_data: Dict[str, Any], context: AnalysisContext) -> str:
+        """
+        构建 LLM 提取 prompt
+
+        Args:
+            jira_data: Jira 数据
+            context: 分析上下文
+
+        Returns:
+            prompt 字符串
+        """
+        # 获取已有分析结果
+        root_cause_result = context.get_result('root_cause')
+
+        # 构建上下文信息
+        title = jira_data.get('title', '')
+        description = jira_data.get('description', '')
+        comments = jira_data.get('comments', [])
+        labels = jira_data.get('labels', [])
+
+        # 限制评论长度
+        comments_text = '\n\n'.join(comments[:10])  # 最多 10 条评论
+        if len(comments_text) > 3000:
+            comments_text = comments_text[:3000] + '...'
+
+        prompt = f"""请从以下 Jira Issue 中提取结构化信息。
+
+**Issue 标题**: {title}
+
+**Issue 描述**:
+{description[:2000]}
+
+**评论** (共 {len(comments)} 条):
+{comments_text}
+
+**标签**: {', '.join(labels)}
+
+请提取以下字段（如果某个字段找不到信息，返回"无"）：
+
+1. **客户名称**: 从评论中提取客户公司名称（如 Micron, Dell, Samsung 等）
+2. **测试项目**: 从标题和标签中提取产品型号和测试类型（如 SSD1250, Sanitize）
+3. **测试平台**: 从描述的"测试环境"部分提取平台信息（Platform, OS, Form Factor）
+4. **测试步骤**: 从描述的"复现步骤"或"测试步骤"部分提取步骤列表
+5. **根因**: 从描述的"根因分析"部分或评论中提取根本原因
+6. **修复方案**: 从描述的"修复方案"或评论中提取修复方法
+
+**要求**:
+- 直接输出 JSON 格式，不要包含任何其他文字
+- 测试步骤以数组形式返回
+- 所有输出必须为中文
+- 如果某个字段找不到，返回"无"
+
+**JSON 格式**:
+```json
+{{
+  "customer": "客户名称或无",
+  "test_project": "测试项目或无",
+  "test_platform": "测试平台或无",
+  "test_steps": ["步骤1", "步骤2"] 或 [],
+  "root_cause": "根因或无",
+  "fix_solution": "修复方案或无"
+}}
+```
+
+请输出 JSON:"""
+
+        return prompt
+
+    def _parse_llm_response(self, response: str) -> Optional[Dict[str, Any]]:
+        """
+        解析 LLM 返回的 JSON 响应
+
+        Args:
+            response: LLM 响应文本
+
+        Returns:
+            解析后的字典，失败返回 None
+        """
+        try:
+            # 尝试提取 JSON（可能包含在 markdown 代码块中）
+            json_match = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+            else:
+                # 尝试直接解析
+                json_str = response.strip()
+
+            # 解析 JSON
+            result = json.loads(json_str)
+
+            # 验证必需字段
+            required_fields = ['customer', 'test_project', 'test_platform', 'test_steps', 'root_cause', 'fix_solution']
+            for field in required_fields:
+                if field not in result:
+                    result[field] = '无' if field != 'test_steps' else []
+
+            # 确保 test_steps 是列表
+            if not isinstance(result['test_steps'], list):
+                result['test_steps'] = []
+
+            return result
+
+        except json.JSONDecodeError as e:
+            print(f"JSON 解析失败: {e}")
+            print(f"响应内容: {response[:500]}")
+            return None
+        except Exception as e:
+            print(f"解析响应失败: {e}")
+            return None
 
     def _extract_customer(self, jira_data: Dict[str, Any], context: AnalysisContext) -> str:
         """
