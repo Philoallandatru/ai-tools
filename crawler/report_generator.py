@@ -22,7 +22,13 @@ class ReportGenerator:
         """
         self.source_dir = Path(source_dir)
         self.config = config or {}
-        self.fixed_issues = self.config.get('reports', {}).get('fixed_issues', [])
+
+        # 报告配置
+        reports_config = self.config.get('reports', {})
+        self.fixed_issues = reports_config.get('fixed_issues', [])
+        self.max_issues_per_report = reports_config.get('max_issues_per_report', 100)
+        self.group_by = reports_config.get('group_by', 'status')
+        self.include_attachments = reports_config.get('include_attachments', True)
 
     def generate_report(
         self,
@@ -157,6 +163,7 @@ class ReportGenerator:
         by_status = defaultdict(list)
         by_priority = defaultdict(list)
         by_type = defaultdict(list)
+        by_assignee = defaultdict(list)
         new_issues = []
         updated_issues = []
 
@@ -164,6 +171,7 @@ class ReportGenerator:
             by_status[issue['status']].append(issue)
             by_priority[issue['priority']].append(issue)
             by_type[issue['type']].append(issue)
+            by_assignee[issue['assignee']].append(issue)
             if issue['is_new']:
                 new_issues.append(issue)
             if issue['is_updated'] and not issue['is_new']:
@@ -176,6 +184,7 @@ class ReportGenerator:
             'by_status': dict(by_status),
             'by_priority': dict(by_priority),
             'by_type': dict(by_type),
+            'by_assignee': dict(by_assignee),
             'new_issues': new_issues,
             'updated_issues': updated_issues,
             'all_issues': all_issues,
@@ -342,25 +351,36 @@ class ReportGenerator:
                 lines.append(f"- **{priority}**: {len(issues)} 个")
             lines.append("")
 
+        # 根据配置的 group_by 显示详细分组
+        if self.group_by and jira['time_range_issues']:
+            lines.append(f"#### 按{self._get_group_name(self.group_by)}分组")
+            lines.append("")
+            self._append_grouped_issues(lines, jira, self.group_by)
+            lines.append("")
+
         # 新增 issues
         if jira['new_issues']:
             lines.append("#### 🆕 新增 Issues")
             lines.append("")
-            for issue in jira['new_issues']:
+            display_count = min(len(jira['new_issues']), self.max_issues_per_report)
+            for issue in jira['new_issues'][:display_count]:
                 lines.append(f"- **[{issue['key']}]** {issue['title']}")
                 lines.append(f"  - 状态: {issue['status']} | 优先级: {issue['priority']} | 类型: {issue['type']}")
                 lines.append(f"  - 经办人: {issue['assignee']}")
+            if len(jira['new_issues']) > display_count:
+                lines.append(f"  - ... 还有 {len(jira['new_issues']) - display_count} 个新增")
             lines.append("")
 
         # 更新的 issues
         if jira['updated_issues']:
             lines.append("#### 🔄 更新的 Issues")
             lines.append("")
-            for issue in jira['updated_issues'][:10]:  # 最多显示 10 个
+            display_count = min(len(jira['updated_issues']), self.max_issues_per_report)
+            for issue in jira['updated_issues'][:display_count]:
                 lines.append(f"- **[{issue['key']}]** {issue['title']}")
                 lines.append(f"  - 状态: {issue['status']} | 优先级: {issue['priority']}")
-            if len(jira['updated_issues']) > 10:
-                lines.append(f"  - ... 还有 {len(jira['updated_issues']) - 10} 个更新")
+            if len(jira['updated_issues']) > display_count:
+                lines.append(f"  - ... 还有 {len(jira['updated_issues']) - display_count} 个更新")
             lines.append("")
 
         # Confluence 部分
@@ -385,10 +405,11 @@ class ReportGenerator:
             if confluence['updated_pages']:
                 lines.append("#### 🔄 更新的页面")
                 lines.append("")
-                for page in confluence['updated_pages'][:10]:
+                display_count = min(len(confluence['updated_pages']), self.max_issues_per_report)
+                for page in confluence['updated_pages'][:display_count]:
                     lines.append(f"- {page['title']}")
-                if len(confluence['updated_pages']) > 10:
-                    lines.append(f"  - ... 还有 {len(confluence['updated_pages']) - 10} 个更新")
+                if len(confluence['updated_pages']) > display_count:
+                    lines.append(f"  - ... 还有 {len(confluence['updated_pages']) - display_count} 个更新")
                 lines.append("")
 
         # 固定跟踪的Issues部分
@@ -417,3 +438,64 @@ class ReportGenerator:
         lines.append("*本报告由 AI Tools 自动生成*")
 
         return '\n'.join(lines)
+
+    def _get_group_name(self, group_by: str) -> str:
+        """获取分组名称"""
+        group_names = {
+            'status': '状态',
+            'priority': '优先级',
+            'assignee': '经办人',
+            'type': '类型'
+        }
+        return group_names.get(group_by, group_by)
+
+    def _append_grouped_issues(self, lines: List[str], jira: Dict[str, Any], group_by: str) -> None:
+        """
+        按指定维度分组显示 issues
+
+        Args:
+            lines: 输出行列表
+            jira: Jira 数据
+            group_by: 分组维度 (status/priority/assignee/type)
+        """
+        group_key = f'by_{group_by}'
+        if group_key not in jira:
+            return
+
+        grouped_data = jira[group_key]
+        if not grouped_data:
+            return
+
+        # 排序规则
+        if group_by == 'priority':
+            priority_order = {'Highest': 0, 'High': 1, 'Medium': 2, 'Low': 3}
+            sorted_groups = sorted(grouped_data.items(), key=lambda x: priority_order.get(x[0], 99))
+        else:
+            # 按 issue 数量降序排序
+            sorted_groups = sorted(grouped_data.items(), key=lambda x: len(x[1]), reverse=True)
+
+        for group_name, issues in sorted_groups:
+            lines.append(f"##### {group_name} ({len(issues)} 个)")
+            lines.append("")
+
+            display_count = min(len(issues), 5)  # 每组最多显示 5 个
+            for issue in issues[:display_count]:
+                lines.append(f"- **[{issue['key']}]** {issue['title']}")
+                # 显示其他维度信息
+                info_parts = []
+                if group_by != 'status':
+                    info_parts.append(f"状态: {issue['status']}")
+                if group_by != 'priority':
+                    info_parts.append(f"优先级: {issue['priority']}")
+                if group_by != 'assignee':
+                    info_parts.append(f"经办人: {issue['assignee']}")
+                if group_by != 'type':
+                    info_parts.append(f"类型: {issue['type']}")
+
+                if info_parts:
+                    lines.append(f"  - {' | '.join(info_parts)}")
+
+            if len(issues) > display_count:
+                lines.append(f"  - ... 还有 {len(issues) - display_count} 个")
+            lines.append("")
+
