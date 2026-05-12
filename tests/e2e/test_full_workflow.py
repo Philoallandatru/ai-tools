@@ -19,7 +19,7 @@ from typing import Dict, Any
 import pytest
 
 from crawler.config import ConfigManager
-from crawler.llm_client import LLMClient
+from crawler.llm_client import LLMClientFactory
 from crawler.services import AnalysisService, ReportService, SyncService
 
 
@@ -27,12 +27,12 @@ from crawler.services import AnalysisService, ReportService, SyncService
 def check_local_llm_available() -> bool:
     """检查本地 LLM 是否可用。"""
     try:
-        client = LLMClient(
-            provider="openai",
-            model="qwen2.5-coder:7b",
-            base_url="http://localhost:11434/v1",
-            api_key="dummy",
-        )
+        config = {
+            "provider": "openai",
+            "model": "qwen2.5-coder:7b",
+            "base_url": "http://localhost:11434/v1",
+        }
+        client = LLMClientFactory.create_from_config(config)
         response = client.generate("test", max_tokens=10)
         return bool(response)
     except Exception:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """端到端测试运行脚本。
 
 这个脚本用于运行完整的端到端测试，包括：
@@ -12,6 +13,12 @@ import sys
 from pathlib import Path
 
 import requests
+
+# 设置控制台编码为 UTF-8
+if sys.platform == "win32":
+    import codecs
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer, "strict")
+    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer, "strict")
 
 
 def check_ollama_running() -> bool:
@@ -47,7 +54,7 @@ def run_tests(test_type: str = "all") -> int:
     Returns:
         退出码
     """
-    project_root = Path(__file__).parent.parent
+    project_root = Path(__file__).parent
     e2e_tests = project_root / "tests" / "e2e"
 
     # 构建 pytest 命令
