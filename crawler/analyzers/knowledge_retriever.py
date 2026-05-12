@@ -20,18 +20,9 @@ class KnowledgeRetriever(BaseAnalyzer):
 
     VERSION = "1.0.0"
 
-    # 常量定义
-    MAX_DESCRIPTION_LENGTH = 500
-    MAX_KEYWORDS = 10
-    KEYWORD_EXTRACTION_MAX_TOKENS = 200
-    CONCEPT_ANALYSIS_MAX_TOKENS = 300
-    WIKI_QUERY_TIMEOUT = 30
-    WIKI_CONTENT_PREVIEW = 1000
-    MAX_THREAD_WORKERS = 3
-    MIN_KEYWORD_LENGTH = 2
-    MAX_KEYWORD_LENGTH = 20
-
-    def __init__(self, source_dir: str = './sources', wiki_dir: str = './wiki', llm_client: Optional[BaseLLMClient] = None, cache_dir: str = './.cache'):
+    def __init__(self, source_dir: str = './sources', wiki_dir: str = './wiki',
+                 llm_client: Optional[BaseLLMClient] = None,
+                 config: Optional[Dict[str, Any]] = None):
         """
         初始化知识检索器
 
@@ -39,14 +30,36 @@ class KnowledgeRetriever(BaseAnalyzer):
             source_dir: 源文件目录
             wiki_dir: Wiki 目录
             llm_client: LLM 客户端（可选，用于分析概念相关性）
-            cache_dir: 缓存目录
+            config: 配置字典（可选）
         """
         self.source_dir = Path(source_dir)
         self.wiki_dir = Path(wiki_dir)
         self.searcher = ContentSearcher(str(self.source_dir))
         self.llm_client = llm_client
-        self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(exist_ok=True)
+
+        # 从配置读取参数，如果没有则使用默认值
+        config = config or {}
+        knowledge_config = config.get('performance', {}).get('knowledge_retrieval', {})
+        cache_config = config.get('cache', {})
+
+        # 缓存配置
+        cache_dir = cache_config.get('dir', './.cache')
+        self.cache_dir = Path(cache_dir) / 'knowledge'
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.cache_enabled = cache_config.get('enabled', True)
+
+        # 性能配置
+        self.max_description_length = knowledge_config.get('max_description_length', 500)
+        self.max_keywords = knowledge_config.get('max_keywords', 10)
+        self.keyword_extraction_max_tokens = knowledge_config.get('keyword_extraction_max_tokens', 200)
+        self.concept_analysis_max_tokens = knowledge_config.get('concept_analysis_max_tokens', 300)
+        self.wiki_query_timeout = knowledge_config.get('wiki_query_timeout', 30)
+        self.wiki_content_preview = knowledge_config.get('wiki_content_preview', 1000)
+        self.max_thread_workers = knowledge_config.get('max_thread_workers', 3)
+        self.min_keyword_length = knowledge_config.get('min_keyword_length', 2)
+        self.max_keyword_length = knowledge_config.get('max_keyword_length', 20)
+        self.max_search_keywords = knowledge_config.get('max_search_keywords', 5)
+        self.max_results_per_keyword = knowledge_config.get('max_results_per_keyword', 3)
 
     def get_name(self) -> str:
         return "knowledge"
@@ -75,6 +88,9 @@ class KnowledgeRetriever(BaseAnalyzer):
         Returns:
             缓存的分析结果，如果不存在返回 None
         """
+        if not self.cache_enabled:
+            return None
+
         cache_file = self._get_cache_key(jira_key)
         try:
             with open(cache_file, 'r', encoding='utf-8') as f:
@@ -94,6 +110,9 @@ class KnowledgeRetriever(BaseAnalyzer):
             jira_key: Jira issue key
             result: 分析结果
         """
+        if not self.cache_enabled:
+            return
+
         cache_file = self._get_cache_key(jira_key)
         try:
             with open(cache_file, 'w', encoding='utf-8') as f:
@@ -159,7 +178,7 @@ class KnowledgeRetriever(BaseAnalyzer):
 
         # 使用 LLM 提取关键词
         title = jira_data.get('title', '')
-        description = jira_data.get('description', '')[:self.MAX_DESCRIPTION_LENGTH]
+        description = jira_data.get('description', '')[:self.max_description_length]
 
         prompt = f"""从以下 Jira Issue 中提取 5-10 个最重要的技术关键词，用于搜索相关文档。
 
@@ -170,21 +189,21 @@ class KnowledgeRetriever(BaseAnalyzer):
 1. 提取技术术语、产品名称、协议名称、组件名称等
 2. 优先提取专有名词和缩写（如 NVMe, SSD, PCIe）
 3. 忽略通用词汇（如 Test, Demo, Issue）
-4. 每个关键词 2-20 个字符
+4. 每个关键词 {self.min_keyword_length}-{self.max_keyword_length} 个字符
 
 请以 JSON 数组格式返回：
 ["关键词1", "关键词2", "关键词3"]"""
 
         try:
             print(f"   [knowledge] 使用 LLM 提取关键词...")
-            response = self.llm_client.generate(prompt, max_tokens=self.KEYWORD_EXTRACTION_MAX_TOKENS)
+            response = self.llm_client.generate(prompt, max_tokens=self.keyword_extraction_max_tokens)
 
             # 使用统一的 JSON 提取函数
             keywords = extract_json_from_llm(response, expected_type='array')
             if keywords:
                 # 过滤和清理
-                keywords = [k.strip() for k in keywords if isinstance(k, str) and self.MIN_KEYWORD_LENGTH <= len(k.strip()) <= self.MAX_KEYWORD_LENGTH]
-                return keywords[:self.MAX_KEYWORDS]
+                keywords = [k.strip() for k in keywords if isinstance(k, str) and self.min_keyword_length <= len(k.strip()) <= self.max_keyword_length]
+                return keywords[:self.max_keywords]
         except Exception as e:
             print(f"   [knowledge] LLM 关键词提取失败，回退到正则表达式: {str(e)}")
 
@@ -274,7 +293,7 @@ class KnowledgeRetriever(BaseAnalyzer):
                 capture_output=True,
                 text=True,
                 encoding='utf-8',
-                timeout=self.WIKI_QUERY_TIMEOUT,
+                timeout=self.wiki_query_timeout,
                 cwd=str(self.wiki_dir.parent)
             )
 
@@ -282,7 +301,7 @@ class KnowledgeRetriever(BaseAnalyzer):
                 # 成功获取回答
                 results.append({
                     'keyword': ', '.join(keywords[:3]),
-                    'content': result.stdout.strip()[:self.WIKI_CONTENT_PREVIEW],
+                    'content': result.stdout.strip()[:self.wiki_content_preview],
                     'source': 'llm-wiki-compiler'
                 })
                 return results
@@ -394,7 +413,7 @@ class KnowledgeRetriever(BaseAnalyzer):
         prompt = f"""请分析以下 Wiki 概念与 Jira Issue 的相关性：
 
 Jira Issue: [{jira_data['key']}] {jira_data['title']}
-描述: {jira_data['description'][:self.MAX_DESCRIPTION_LENGTH]}
+描述: {jira_data['description'][:self.max_description_length]}
 
 Wiki 概念: {concept['keyword']}
 内容: {concept['content'][:600]}
@@ -412,7 +431,7 @@ Wiki 概念: {concept['keyword']}
 
             # 调用 LLM
             context.increment_llm_calls()
-            response = self.llm_client.generate(prompt, max_tokens=self.CONCEPT_ANALYSIS_MAX_TOKENS)
+            response = self.llm_client.generate(prompt, max_tokens=self.concept_analysis_max_tokens)
 
             # 使用统一的 JSON 提取函数
             data = extract_json_from_llm(response, expected_type='object')
@@ -468,7 +487,7 @@ Wiki 概念: {concept['keyword']}
         enhanced_results = []
 
         # 动态调整线程池大小
-        max_workers = min(len(wiki_results), self.MAX_THREAD_WORKERS, os.cpu_count() or 1)
+        max_workers = min(len(wiki_results), self.max_thread_workers, os.cpu_count() or 1)
 
         # 使用线程池并行处理
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -525,13 +544,13 @@ Wiki 概念: {concept['keyword']}
         """
         results = []
 
-        for keyword in keywords[:5]:  # 最多搜索前 5 个关键词
+        for keyword in keywords[:self.max_search_keywords]:
             try:
                 search_results = self.searcher.search(
                     keyword,
                     file_type='all',
                     context_lines=2,
-                    max_results=3
+                    max_results=self.max_results_per_keyword
                 )
 
                 if search_results:
@@ -543,7 +562,7 @@ Wiki 概念: {concept['keyword']}
                                 'line': r['line_number'],
                                 'text': r['line'][:200]  # 限制长度
                             }
-                            for r in search_results[:3]
+                            for r in search_results[:self.max_results_per_keyword]
                         ]
                     })
 
