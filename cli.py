@@ -1205,10 +1205,9 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
                 test_response = llm_client.generate("test", max_tokens=10, temperature=0.7)
                 click.echo("   ✓ LLM 连接成功")
             except Exception as e:
-                click.echo(f"   ❌ LLM 连接失败: {e}", err=True)
-                click.echo(f"   请确保 LLM 服务运行在 {base_url}", err=True)
-                click.echo("   或使用 --llm-provider mock 进行测试", err=True)
-                sys.exit(1)
+                click.echo(f"   ⚠️  LLM 连接失败: {e}", err=True)
+                click.echo(f"   ⚠️  自动降级到 Mock LLM 模式", err=True)
+                llm_client = LLMClientFactory.create('mock')
 
         click.echo("")
 

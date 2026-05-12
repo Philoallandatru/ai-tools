@@ -2,7 +2,7 @@
 对比测试：正则提取 vs LLM 提取关键词
 """
 import re
-from crawler.llm_client import create_llm_client
+from test_utils import create_test_llm_client
 
 # 测试文本样例
 test_texts = [
@@ -89,18 +89,16 @@ def main():
     print("=" * 80)
     print("关键词提取方案对比测试")
     print("=" * 80)
+    print()
 
-    # 初始化 LLM 客户端
-    try:
-        llm_client = create_llm_client(
-            provider='openai',
-            base_url='http://127.0.0.1:1234/v1',
-            model='qwen3.5-4b'
-        )
-        llm_available = True
-    except:
-        print("\n[警告] LLM 客户端初始化失败，跳过 LLM 测试\n")
-        llm_available = False
+    # 初始化 LLM 客户端（自动降级到 Mock）
+    llm_client = create_test_llm_client(
+        provider='openai',
+        base_url='http://127.0.0.1:1234/v1',
+        model='qwen3.5-4b',
+        auto_fallback=True
+    )
+    print()
 
     for i, text in enumerate(test_texts, 1):
         print(f"\n{'=' * 80}")
@@ -115,21 +113,20 @@ def main():
         print(f"  {', '.join(regex_keywords)}")
 
         # 方案2：LLM 提取
-        if llm_available:
-            print(f"\n[方案2] LLM 提取：")
-            llm_keywords = extract_keywords_llm(text, llm_client)
-            print(f"  提取到 {len(llm_keywords)} 个关键词")
-            print(f"  {', '.join(llm_keywords)}")
+        print(f"\n[方案2] LLM 提取：")
+        llm_keywords = extract_keywords_llm(text, llm_client)
+        print(f"  提取到 {len(llm_keywords)} 个关键词")
+        print(f"  {', '.join(llm_keywords)}")
 
-            # 对比分析
-            print(f"\n[对比分析]")
-            only_regex = set(regex_keywords) - set(llm_keywords)
-            only_llm = set(llm_keywords) - set(regex_keywords)
-            both = set(regex_keywords) & set(llm_keywords)
+        # 对比分析
+        print(f"\n[对比分析]")
+        only_regex = set(regex_keywords) - set(llm_keywords)
+        only_llm = set(llm_keywords) - set(regex_keywords)
+        both = set(regex_keywords) & set(llm_keywords)
 
-            print(f"  共同提取: {len(both)} 个 - {', '.join(sorted(both)) if both else '无'}")
-            print(f"  仅正则: {len(only_regex)} 个 - {', '.join(sorted(only_regex)) if only_regex else '无'}")
-            print(f"  仅LLM: {len(only_llm)} 个 - {', '.join(sorted(only_llm)) if only_llm else '无'}")
+        print(f"  共同提取: {len(both)} 个 - {', '.join(sorted(both)) if both else '无'}")
+        print(f"  仅正则: {len(only_regex)} 个 - {', '.join(sorted(only_regex)) if only_regex else '无'}")
+        print(f"  仅LLM: {len(only_llm)} 个 - {', '.join(sorted(only_llm)) if only_llm else '无'}")
 
     # 总结建议
     print(f"\n{'=' * 80}")
