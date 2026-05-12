@@ -1,0 +1,18 @@
+{
+  "keywords": [
+    "Issue"
+  ],
+  "wiki_concepts": [
+    {
+      "keyword": "Issue",
+      "content": "---\ntitle: Jira Issue REST API 响应数据结构\nsummary: Jira REST API返回的Issue完整数据结构，包含statusCategory、issuetype、project、priority等标准字段及其嵌套对象结构，是Kanban项目中使用标准Jira数据结构的具体实例\nsources:\n  - KAN-1.md\nkind: concept\ncreatedAt: \"2026-05-07T19:51:32.355Z\"\nupdatedAt: \"2026-05-07T19:51:32.355Z\"\ntags:\n  - jira\n  - api\n  - data-structure\naliases:\n  - jira-issue-rest-api-响应数据结构\n  - JIRA响\nconfidence: 0.95\nprovenanceState: extracted\n---\n\n<think>The user wants me to write a wiki page about \"Jira Issue REST API 响应数据结构\" (Jira Issue REST API Response Data Structure) based on the provided source material.\n\nLooking at the source material, I have KAN-1.md which appears to be a Jira issue retrieved via the Jira REST API. The JSON data in the \"原始数据（JSON）\" section shows the complete response structure from the Jira REST API.\n\nL",
+      "source": "filename_partial",
+      "file": "jira-issue-rest-api-响应数据结构.md",
+      "llm_analysis": {
+        "score": 0,
+        "reason": "无法分析"
+      }
+    }
+  ],
+  "related_sources": []
+}

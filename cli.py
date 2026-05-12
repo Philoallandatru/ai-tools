@@ -36,6 +36,7 @@ from crawler.analyzers.similar_jira_finder import SimilarJiraFinder
 from crawler.analyzers.closed_loop_checker import ClosedLoopChecker
 from crawler.analyzers.comment_analyzer import CommentAnalyzer
 from crawler.analyzers.action_recommender import ActionRecommender
+from crawler.analyzers.issue_summary_analyzer import IssueSummaryAnalyzer
 
 
 def _sync_confluence_space(source: Dict[str, Any], space_config: Dict[str, Any], is_cloud: bool, storage: StorageManager, error_handler: ErrorHandler) -> Dict[str, int]:
@@ -1207,6 +1208,11 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
         analyzer.register_analyzer(ClosedLoopChecker(llm_client))
         analyzer.register_analyzer(CommentAnalyzer(llm_client))
         analyzer.register_analyzer(ActionRecommender(llm_client))
+
+        # 注册问题摘要分析器（最后执行）
+        issue_summary_config = config.get('jira_analysis', {}).get('issue_summary', {})
+        if issue_summary_config.get('enabled', True):
+            analyzer.register_analyzer(IssueSummaryAnalyzer(llm_client, config=issue_summary_config))
 
         # 5. 注册自定义分析器
         from crawler.analyzers.custom_analyzer import CustomAnalyzer

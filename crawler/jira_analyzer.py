@@ -155,6 +155,41 @@ class JiraDeepAnalyzer(UnifiedAnalyzer):
         # 标题
         lines.append(f"# Jira 深度分析报告: [{jira_data['key']}] {jira_data['title']}")
         lines.append("")
+
+        # 问题摘要（新增）
+        summary_result = context.get_result('issue_summary')
+        if summary_result:
+            lines.append("## 📋 问题摘要")
+            lines.append("")
+            lines.append(f"**客户名称**: {summary_result.get('customer', '无')}")
+            lines.append(f"**测试项目**: {summary_result.get('test_project', '无')}")
+            lines.append(f"**测试平台**: {summary_result.get('test_platform', '无')}")
+            lines.append("")
+
+            test_steps = summary_result.get('test_steps', [])
+            if test_steps:
+                lines.append("**测试步骤**:")
+                for i, step in enumerate(test_steps, 1):
+                    lines.append(f"{i}. {step}")
+            else:
+                lines.append("**测试步骤**: 无")
+            lines.append("")
+
+            lines.append(f"**根因**: {summary_result.get('root_cause', '无')}")
+            lines.append(f"**修复方案**: {summary_result.get('fix_solution', '无')}")
+            lines.append("")
+
+            code_coverage = summary_result.get('code_coverage')
+            if code_coverage and code_coverage.get('enabled'):
+                matches = code_coverage.get('matches', 0)
+                if matches > 0:
+                    lines.append(f"**代码覆盖检查**: 找到 {matches} 个相关代码文件")
+                else:
+                    lines.append("**代码覆盖检查**: 未找到相关代码")
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+
         lines.append(f"**生成时间**: {context.metadata.get('created_at', 'N/A')}")
         lines.append(f"**状态**: {jira_data['status']} | **优先级**: {jira_data['priority']} | **类型**: {jira_data['type']}")
         lines.append("")

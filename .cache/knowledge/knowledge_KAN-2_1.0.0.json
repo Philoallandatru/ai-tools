@@ -1,0 +1,36 @@
+{
+  "keywords": [
+    "SSD1250",
+    "NVM",
+    "NVMe",
+    "Sanitize",
+    "Block Erase",
+    "Reset",
+    "PCIe",
+    "CC.EN",
+    "Log Page"
+  ],
+  "wiki_concepts": [
+    {
+      "keyword": "Sanitize",
+      "content": "---\ntitle: Controller Level Reset对Sanitize状态的影响\nsummary: Controller Level Reset可能导致Sanitize操作不包含Media Verification状态和Post-Verification Deallocation状态，影响操作完整性\nsources:\n  - nvme-744-Elements-of-Sanitize-Operations.md\nkind: concept\ncreatedAt: \"2026-05-08T19:00:12.248Z\"\nupdatedAt: \"2026-05-08T19:00:12.248Z\"\ntags:\n  - nvme\n  - reset\n  - sanitize\naliases:\n  - controller-level-reset对sanitize状态的影响\n  - CLR\nconfidence: 0.85\nprovenanceState: extracted\n---\n\n<think>The user wants me to write a wiki page about \"Controller Level Reset对Sanitize状态的影响\" (Impact of Controller Level Reset on Sanitize State). I need to extract information from the provided source material.\n\nLooking at the source material in `nvme-744-Elements-of-Sanitize-Operations.md`, I can find relevant information about how Controller Level",
+      "source": "filename_partial",
+      "file": "controller-level-reset对sanitize状态的影响.md",
+      "llm_analysis": {
+        "score": 9,
+        "reason": "Jira Issue 描述了在 SSD1250 固件中，Sanitize（Block Erase）操作期间下发 NVM Subsystem Reset 导致设备进入只读模式的问题。Wiki 概念则专门探讨 'Controller Level Reset' 对 Sanitize 状态的影响及其可能导致的完整性问题（如缺少媒体验证或后验释放）。两者在核心技术点（Reset 对 Sanitize 过程的影响）、应用场景（NVMe SSD 固件行为）及故障现象（操作不完整/设备异常）上高度相关。Jira Issue 中的具体案例可以作为 Wiki 概念中关于 'Post-Verification Deallocation' 等状态丢失的实证或补充细节。"
+      }
+    },
+    {
+      "keyword": "NVMe",
+      "content": "---\ntitle: Controller Attributes与NVMe命令集的关系\nsummary: CAP结构体定义控制器支持的NVMe命令集属性，包括I/O命令集选择(命令集字段)和Controller Attributes结构体的从属关系\nsources:\n  - nvme-443-Common-Identify-Data-Structures.md\nkind: concept\ncreatedAt: \"2026-05-08T13:37:41.664Z\"\nupdatedAt: \"2026-05-08T13:37:41.664Z\"\ntags:\n  - nvme\n  - command-set\n  - controller\naliases:\n  - controller-attributes与nvme命令集的关系\nconfidence: 0.75\nprovenanceState: merged\n---\n\n<think>The user wants me to write a wiki page about \"Controller Attributes与NVMe命令集的关系\" (The Relationship between Controller Attributes and NVMe Command Sets).\n\nLooking at the source materials provided, I need to find information about Controller Attributes and their relationship to the NVMe command set.\n\nThe source materials include:\n1. nvme-363-Firmware-Commit-command.md - about Firmwar",
+      "source": "filename_partial",
+      "file": "controller-attributes与nvme命令集的关系.md",
+      "llm_analysis": {
+        "score": 8,
+        "reason": "高度相关。Jira Issue 中复现步骤明确提到了通过 PCIe 写入'Controller Configuration (CC.EN=0 -> CC.EN=1)'来触发问题，这正是 NVMe Controller Attributes 结构体的核心功能之一（控制寄存器配置）。该 Wiki 概念直接定义了控制器属性与命令集的关系，是理解如何下发此类低层控制指令的理论基础。"
+      }
+    }
+  ],
+  "related_sources": []
+}
