@@ -1162,18 +1162,16 @@ def export_filtered(doc_type, statuses, today, yesterday, days, output, source_d
 @click.option('--source-dir', default='./sources', help='源文件目录')
 @click.option('--wiki-dir', default='./wiki', help='Wiki 目录')
 @click.option('--output-dir', default='./reports', help='报告输出目录')
-@click.option('--llm-provider', default='mock', type=click.Choice(['mock', 'llmstudio']), help='LLM 提供商')
+@click.option('--llm-provider', default=None, type=click.Choice(['mock', 'llmstudio']), help='LLM 提供商（默认从配置读取）')
 def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
     """
     深度分析 Jira Issue
 
     示例:
         uv run python cli.py analyze-jira KAN-1
-        uv run python cli.py analyze-jira KAN-2 --llm-provider llmstudio
+        uv run python cli.py analyze-jira KAN-2 --llm-provider mock  # 使用 Mock LLM 测试
     """
     click.echo(f"🔍 开始分析 Jira Issue: {issue_key}")
-    click.echo(f"   LLM 提供商: {llm_provider}")
-    click.echo("")
 
     try:
         # 1. 加载配置
@@ -1185,15 +1183,32 @@ def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider):
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
 
-        # 2. 创建 LLM 客户端
+        # 2. 确定 LLM 提供商（优先使用命令行参数，否则从配置读取）
         llm_config = config.get('llm', {})
-        if llm_provider == 'llmstudio':
-            llm_config['provider'] = 'llmstudio'
-            llm_client = LLMClientFactory.create_from_config(llm_config)
-            click.echo(f"   使用 LLMStudio: {llm_config.get('base_url')}")
-        else:
+        if llm_provider is None:
+            llm_provider = llm_config.get('provider', 'llmstudio')
+
+        click.echo(f"   LLM 提供商: {llm_provider}")
+
+        # 3. 创建 LLM 客户端
+        if llm_provider == 'mock':
             llm_client = LLMClientFactory.create('mock')
-            click.echo("   使用 Mock LLM（测试模式）")
+            click.echo("   ⚠️  使用 Mock LLM（测试模式）")
+        else:
+            llm_config['provider'] = 'llmstudio'
+            base_url = llm_config.get('base_url', 'http://127.0.0.1:1234/v1')
+            click.echo(f"   连接 LLMStudio: {base_url}")
+
+            try:
+                llm_client = LLMClientFactory.create_from_config(llm_config)
+                # 测试连接
+                test_response = llm_client.generate("test", max_tokens=10, temperature=0.7)
+                click.echo("   ✓ LLM 连接成功")
+            except Exception as e:
+                click.echo(f"   ❌ LLM 连接失败: {e}", err=True)
+                click.echo(f"   请确保 LLM 服务运行在 {base_url}", err=True)
+                click.echo("   或使用 --llm-provider mock 进行测试", err=True)
+                sys.exit(1)
 
         click.echo("")
 
