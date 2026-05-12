@@ -57,51 +57,45 @@ class ConfluenceCrawler:
             print(f"[Confluence] 模式: {'Cloud' if self.client.cloud else 'Server'}")
             print(f"[Confluence] URL: {self.base_url}")
 
-            # 获取 space 的所有页面（只获取基本信息）
+            # 获取 space 的所有页面（使用手动分页确保获取所有页面）
+            # 注意：直接使用 get_all_pages_from_space_raw 而不是 get_all_pages_from_space
+            # 因为后者有一个 bug：使用 <= limit 而不是 < limit 作为终止条件
             pages = []
-            try:
-                # 尝试标准方法
-                pages = self.client.get_all_pages_from_space(
-                    space_key,
-                    expand='version'  # 只获取版本信息用于检测
-                )
-                print(f"[Confluence] 使用标准方法成功获取页面")
-            except Exception as e:
-                print(f"[Confluence] 警告: 标准方法失败: {str(e)}")
-                print(f"[Confluence] 尝试使用备用方法（手动分页）...")
+            start = 0
+            limit = 100  # 每页获取 100 个，减少 API 调用次数
 
-                # 备用方法：手动分页
-                start = 0
-                limit = 50
-                consecutive_empty = 0
+            print(f"[Confluence] 开始分页获取所有页面...")
 
-                while consecutive_empty < 2:  # 连续两次空结果才停止
-                    try:
-                        response = self.client.get_all_pages_from_space_raw(
-                            space=space_key,
-                            start=start,
-                            limit=limit,
-                            expand='version'
-                        )
-                        results = response.get('results', [])
+            while True:
+                try:
+                    # 直接调用 raw 方法来绕过库的 bug
+                    response = self.client.get_all_pages_from_space_raw(
+                        space=space_key,
+                        start=start,
+                        limit=limit,
+                        expand='version'
+                    )
 
-                        if not results:
-                            consecutive_empty += 1
-                            print(f"[Confluence] 第 {start//limit + 1} 页: 0 个结果 (连续空结果: {consecutive_empty})")
-                        else:
-                            consecutive_empty = 0
-                            pages.extend(results)
-                            print(f"[Confluence] 第 {start//limit + 1} 页: {len(results)} 个结果")
+                    results = response.get('results', [])
 
-                        # 如果返回结果少于 limit，说明已经是最后一页
-                        if len(results) < limit:
-                            break
-
-                        start += limit
-
-                    except Exception as inner_e:
-                        print(f"[Confluence] 备用方法在 start={start} 时失败: {str(inner_e)}")
+                    if not results:
+                        print(f"[Confluence] 第 {start//limit + 1} 页: 0 个结果，分页结束")
                         break
+
+                    pages.extend(results)
+                    print(f"[Confluence] 第 {start//limit + 1} 页: {len(results)} 个结果 (累计: {len(pages)})")
+
+                    # 如果返回结果少于 limit，说明已经是最后一页
+                    if len(results) < limit:
+                        print(f"[Confluence] 已到达最后一页")
+                        break
+
+                    start += limit
+
+                except Exception as e:
+                    print(f"[Confluence] 分页获取失败 (start={start}): {str(e)}")
+                    print(f"[Confluence] 已获取 {len(pages)} 个页面，继续处理...")
+                    break
 
             # 调试信息
             print(f"[Confluence] API 返回的页面数量: {len(pages) if pages else 0}")
