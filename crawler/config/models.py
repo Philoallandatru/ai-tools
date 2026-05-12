@@ -7,7 +7,7 @@ providing validation, type checking, and environment variable support.
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SpaceConfig(BaseModel):
@@ -288,6 +288,11 @@ class LoggingConfig(BaseModel):
 class AppConfig(BaseModel):
     """Root application configuration."""
 
+    model_config = ConfigDict(
+        extra="allow",  # Allow extra fields for forward compatibility
+        validate_assignment=True,  # Validate on assignment
+    )
+
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
     sync: SyncConfig = Field(default_factory=SyncConfig)
@@ -301,9 +306,3 @@ class AppConfig(BaseModel):
     jira_analysis: JiraAnalysisConfig = Field(default_factory=JiraAnalysisConfig)
     custom_analyzers: List[CustomAnalyzerConfig] = Field(default_factory=list)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
-
-    class Config:
-        """Pydantic configuration."""
-
-        extra = "allow"  # Allow extra fields for forward compatibility
-        validate_assignment = True  # Validate on assignment
