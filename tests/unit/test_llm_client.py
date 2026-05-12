@@ -33,6 +33,33 @@ class TestLLMClientFactory:
         assert client.base_url == 'http://localhost:1234/v1'
         assert client.model == 'test-model'
 
+    def test_create_llmstudio_client(self):
+        """测试创建 LM Studio 兼容客户端"""
+        config = {
+            'provider': 'llmstudio',
+            'base_url': 'http://localhost:1234',
+            'model': 'test-model',
+            'timeout': 30,
+        }
+        client = LLMClientFactory.create_from_config(config)
+
+        assert isinstance(client, OpenAIClient)
+        assert client.base_url == 'http://localhost:1234/v1'
+        assert client.model == 'test-model'
+        assert client.timeout == 30
+
+    def test_create_llamacpp_client(self):
+        """测试创建 llama.cpp 兼容客户端"""
+        config = {
+            'provider': 'llamacpp',
+            'base_url': 'http://localhost:9090',
+            'model': 'vision-model',
+        }
+        client = LLMClientFactory.create_from_config(config)
+
+        assert isinstance(client, OpenAIClient)
+        assert client.base_url == 'http://localhost:9090/v1'
+
     def test_create_with_default_provider(self):
         """测试使用默认 provider（mock）"""
         config = {}

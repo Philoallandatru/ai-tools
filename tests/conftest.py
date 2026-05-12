@@ -2,9 +2,16 @@
 Shared test fixtures and utilities
 """
 
+import sys
+from pathlib import Path
+
 import pytest
 from typing import Dict, Any
 from crawler.llm_client import MockLLMClient, BaseLLMClient
+
+INTEGRATION_TEST_DIR = Path(__file__).parent / "integration"
+if str(INTEGRATION_TEST_DIR) not in sys.path:
+    sys.path.insert(0, str(INTEGRATION_TEST_DIR))
 
 
 @pytest.fixture
