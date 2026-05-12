@@ -166,11 +166,19 @@ class LLMStudioClient(BaseLLMClient):
                 print(f"[DEBUG] LLM 响应格式异常: {result}")
                 return ""
 
-            content = result['choices'][0]['message']['content']
-            if not content or len(content.strip()) == 0:
-                print(f"[DEBUG] LLM 返回空内容，完整响应: {result}")
+            message = result['choices'][0]['message']
 
-            return content.strip()
+            # 优先使用 content，如果为空则尝试 reasoning_content（推理模式）
+            content = message.get('content', '').strip()
+            if not content:
+                reasoning_content = message.get('reasoning_content', '').strip()
+                if reasoning_content:
+                    print(f"[DEBUG] 使用 reasoning_content（推理模式），长度: {len(reasoning_content)}")
+                    return reasoning_content
+                print(f"[DEBUG] LLM 返回空内容，完整响应: {result}")
+                return ""
+
+            return content
 
         except requests.HTTPError as e:
             # 如果 chat completions 失败，尝试 completions API（仅支持文本）

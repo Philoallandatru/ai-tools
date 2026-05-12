@@ -66,9 +66,15 @@ def test_llm_connection():
                 if 'message' in choice:
                     message = choice['message']
                     print(f"Message 结构: {list(message.keys())}")
+
                     content = message.get('content', '')
+                    reasoning_content = message.get('reasoning_content', '')
+
                     print(f"Content 长度: {len(content)}")
                     print(f"Content 内容: {content}")
+                    print(f"Reasoning Content 长度: {len(reasoning_content)}")
+                    if reasoning_content:
+                        print(f"Reasoning Content 内容（前200字符）: {reasoning_content[:200]}")
                 else:
                     print("⚠️  警告: 响应中没有 'message' 字段")
             else:
