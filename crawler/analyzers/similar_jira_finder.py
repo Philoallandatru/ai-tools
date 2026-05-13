@@ -14,7 +14,7 @@ from crawler.llm_utils import clean_llm_output
 class SimilarJiraFinder(BaseAnalyzer):
     """类似 Jira 查找器 - 基于关键词、问题类型和根因匹配，并使用 LLM 分析相关性"""
 
-    def __init__(self, source_dir: str = './sources', top_k: int = 3, llm_client: BaseLLMClient = None):
+    def __init__(self, source_dir: str = './sources', top_k: int = 3, llm_client: BaseLLMClient = None, config: Dict[str, Any] = None):
         """
         初始化类似 Jira 查找器
 
@@ -22,10 +22,12 @@ class SimilarJiraFinder(BaseAnalyzer):
             source_dir: 源文件目录
             top_k: 返回最相似的 K 个 Issues
             llm_client: LLM 客户端（用于深度关联分析）
+            config: 配置字典
         """
         self.source_dir = Path(source_dir)
         self.top_k = top_k
         self.llm_client = llm_client
+        self.config = config or {}
 
     def get_name(self) -> str:
         return "similar_jira"
@@ -214,13 +216,17 @@ class SimilarJiraFinder(BaseAnalyzer):
 1. 共同点：它们有什么相似之处？（技术领域、问题类型、触发条件等）
 2. 参考价值：这个相似问题能为当前问题提供什么参考？（解决思路、注意事项等）
 
-请直接回答，不要使用 Markdown 格式，不要输出思考过程。
+要求：
+- 必须用中文回答
+- 直接回答，不要使用 Markdown 格式
+- 不要输出思考过程
 """
 
         try:
             print(f"   [similar_jira] 调用 LLM (prompt 长度: {len(prompt)} 字符)...", flush=True)
             sys.stdout.flush()
-            response = self.llm_client.generate(prompt, max_tokens=300)
+            max_tokens = self.config.get('max_tokens', 2000)
+            response = self.llm_client.generate(prompt, max_tokens=max_tokens)
             print(f"   [similar_jira] LLM 响应完成 (长度: {len(response)} 字符)", flush=True)
             sys.stdout.flush()
             # 清理响应（移除 <think> 标签等）

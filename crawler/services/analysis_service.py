@@ -124,8 +124,15 @@ class AnalysisService:
             )
         )
         analyzer.register_analyzer(RootCauseAnalyzer(llm_client))
+
+        similar_jira_config = self.config.get("jira_analysis", {}).get("similar_jira", {})
         analyzer.register_analyzer(
-            SimilarJiraFinder(source_dir=source_dir, top_k=3, llm_client=llm_client)
+            SimilarJiraFinder(
+                source_dir=source_dir,
+                top_k=3,
+                llm_client=llm_client,
+                config=similar_jira_config
+            )
         )
         analyzer.register_analyzer(ClosedLoopChecker(llm_client))
         analyzer.register_analyzer(CommentAnalyzer(llm_client))

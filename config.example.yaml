@@ -132,6 +132,10 @@ jira_analysis:
       source_dir: "./sources"  # 源文件目录
       max_results: 5
 
+  # 相似问题查找配置
+  similar_jira:
+    max_tokens: 2000           # 相关性分析最大 tokens（推理模型需要更大的限制）
+
 # 自定义分析器配置
 custom_analyzers:
   - name: "技术债务评估"
