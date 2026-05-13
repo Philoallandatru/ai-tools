@@ -22,9 +22,9 @@ echo 1. 搜索功能测试
 echo ==========================================
 
 call :run_test "基本搜索" "uv run python cli.py search NVMe"
-call :run_test "搜索 Jira issues" "uv run python cli.py search 测试 --type jira"
+call :run_test "搜索 Jira issues" "uv run python cli.py search 测试 --file-type jira"
 call :run_test "正则表达式搜索" "uv run python cli.py search KAN-[0-9]+ --regex"
-call :run_test "带上下文搜索" "uv run python cli.py search 测试 --context 5"
+call :run_test "带上下文搜索" "uv run python cli.py search 测试 --context-lines 5"
 call :run_test "只显示统计信息" "uv run python cli.py search NVMe --stats-only"
 
 REM ==========================================
@@ -71,11 +71,10 @@ echo ==========================================
 echo 5. 报告生成功能测试
 echo ==========================================
 
-call :run_test "生成周报" "uv run python cli.py generate-report"
-call :run_test "生成日报" "uv run python cli.py generate-report --type daily"
-call :run_test "生成月报" "uv run python cli.py generate-report --type monthly"
-call :run_test "生成指定时间范围报告" "uv run python cli.py generate-report --start 2026-05-01 --end 2026-05-07"
-call :run_test "生成 JSON 格式报告" "uv run python cli.py generate-report --format json"
+call :run_test "生成周报" "uv run python cli.py generate-report --report-type weekly"
+call :run_test_skip "生成 Jira 报告（需要 Jira 配置）"
+call :run_test "生成指定时间范围报告" "uv run python cli.py generate-report --report-type weekly --start-date 2026-05-01 --end-date 2026-05-07"
+call :run_test "生成 JSON 格式报告" "uv run python cli.py generate-report --report-type weekly --output-format json"
 
 REM ==========================================
 REM 6. 筛选导出功能测试
@@ -85,9 +84,9 @@ echo ==========================================
 echo 6. 筛选导出功能测试
 echo ==========================================
 
-call :run_test "导出今天更新的进行中 issues" "uv run python cli.py export-filtered --today --status 进行中"
-call :run_test "导出最近 7 天更新的 issues" "uv run python cli.py export-filtered --days 7 --status 待办 --status 进行中"
-call :run_test "导出昨天更新的 Confluence 页面" "uv run python cli.py export-filtered --type confluence --yesterday"
+call :run_test "导出今天更新的进行中 issues" "uv run python cli.py export-filtered --today --statuses 进行中"
+call :run_test "导出最近 7 天更新的 issues" "uv run python cli.py export-filtered --days 7 --statuses 待办,进行中"
+call :run_test "导出昨天更新的 Confluence 页面" "uv run python cli.py export-filtered --doc-type confluence --yesterday"
 
 REM ==========================================
 REM 7. 文档拆分功能测试

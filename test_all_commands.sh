@@ -2,7 +2,7 @@
 # 测试 README.md 中的所有 CLI 命令
 # 用于验证每次修改后所有功能是否正常工作
 
-set -e  # 遇到错误立即退出
+# 不使用 set -e，让测试继续运行并收集所有结果
 
 echo "=========================================="
 echo "开始测试所有 CLI 命令"
@@ -58,13 +58,13 @@ run_test "基本搜索" \
     "uv run python cli.py search 'NVMe'"
 
 run_test "搜索 Jira issues" \
-    "uv run python cli.py search '测试' --type jira"
+    "uv run python cli.py search '测试' --file-type jira"
 
 run_test "正则表达式搜索" \
     "uv run python cli.py search 'KAN-[0-9]+' --regex"
 
 run_test "带上下文搜索" \
-    "uv run python cli.py search '测试' --context 5"
+    "uv run python cli.py search '测试' --context-lines 5"
 
 run_test "只显示统计信息" \
     "uv run python cli.py search 'NVMe' --stats-only"
@@ -133,19 +133,17 @@ echo "5. 报告生成功能测试"
 echo "=========================================="
 
 run_test "生成周报" \
-    "uv run python cli.py generate-report"
+    "uv run python cli.py generate-report --report-type weekly"
 
-run_test "生成日报" \
-    "uv run python cli.py generate-report --type daily"
-
-run_test "生成月报" \
-    "uv run python cli.py generate-report --type monthly"
+run_test "生成 Jira 报告（需要 Jira 配置）" \
+    "uv run python cli.py generate-report --report-type jira" \
+    "true"
 
 run_test "生成指定时间范围报告" \
-    "uv run python cli.py generate-report --start 2026-05-01 --end 2026-05-07"
+    "uv run python cli.py generate-report --report-type weekly --start-date 2026-05-01 --end-date 2026-05-07"
 
 run_test "生成 JSON 格式报告" \
-    "uv run python cli.py generate-report --format json"
+    "uv run python cli.py generate-report --report-type weekly --output-format json"
 
 # ==========================================
 # 6. 筛选导出功能测试
@@ -156,13 +154,13 @@ echo "6. 筛选导出功能测试"
 echo "=========================================="
 
 run_test "导出今天更新的进行中 issues" \
-    "uv run python cli.py export-filtered --today --status '进行中'"
+    "uv run python cli.py export-filtered --today --statuses '进行中'"
 
 run_test "导出最近 7 天更新的 issues" \
-    "uv run python cli.py export-filtered --days 7 --status '待办' --status '进行中'"
+    "uv run python cli.py export-filtered --days 7 --statuses '待办,进行中'"
 
 run_test "导出昨天更新的 Confluence 页面" \
-    "uv run python cli.py export-filtered --type confluence --yesterday"
+    "uv run python cli.py export-filtered --doc-type confluence --yesterday"
 
 # ==========================================
 # 7. 文档拆分功能测试

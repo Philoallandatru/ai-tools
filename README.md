@@ -83,13 +83,13 @@ uv run python cli.py sync
 uv run python cli.py search "NVMe Reset"
 
 # 只搜索 Jira issues
-uv run python cli.py search "性能优化" --type jira
+uv run python cli.py search "性能优化" --file-type jira
 
 # 使用正则表达式搜索
 uv run python cli.py search "CC\.EN|CSTS\.RDY" --regex
 
 # 显示更多上下文（前后 5 行）
-uv run python cli.py search "测试" --context 5
+uv run python cli.py search "测试" --context-lines 5
 
 # 只显示统计信息
 uv run python cli.py search "NVMe" --stats-only
@@ -128,19 +128,16 @@ uv run python cli.py analyze-doc sources/doc.md --output reports/my_analysis.md
 
 # 5. 自动报告生成
 # 生成本周周报
-uv run python cli.py generate-report
+uv run python cli.py generate-report --report-type weekly
 
-# 生成今日日报
-uv run python cli.py generate-report --type daily
-
-# 生成月报
-uv run python cli.py generate-report --type monthly
+# 生成 Jira 报告
+uv run python cli.py generate-report --report-type jira
 
 # 生成指定时间范围的报告
-uv run python cli.py generate-report --start 2026-05-01 --end 2026-05-07
+uv run python cli.py generate-report --report-type weekly --start-date 2026-05-01 --end-date 2026-05-07
 
 # 输出为 JSON 格式
-uv run python cli.py generate-report --format json
+uv run python cli.py generate-report --report-type weekly --output-format json
 
 # 5. 筛选导出文档（可选）
 # 导出今天更新的进行中的 Jira issues
