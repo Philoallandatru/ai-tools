@@ -199,17 +199,28 @@ class OpenAIClient(BaseLLMClient):
 
             message = result['choices'][0]['message']
 
-            # 优先使用 content，如果为空则尝试 reasoning_content（推理模式）
+            # 处理不同的响应格式
             content = message.get('content', '').strip()
-            if not content:
-                reasoning_content = message.get('reasoning_content', '').strip()
-                if reasoning_content:
-                    print(f"[DEBUG] 使用 reasoning_content（推理模式），长度: {len(reasoning_content)}")
-                    return reasoning_content
-                print(f"[DEBUG] LLM 返回空内容，完整响应: {result}")
+            reasoning_content = message.get('reasoning_content', '').strip()
+
+            # 优先使用 content（最终答案）
+            if content:
+                return content
+
+            # 如果只有 reasoning_content，说明模型处于推理模式
+            # reasoning_content 通常包含推理过程，不是最终答案
+            # 不应该直接使用，否则会导致 JSON 解析等问题
+            if reasoning_content:
+                print(f"[WARNING] 模型返回了 reasoning_content 但没有 content")
+                print(f"[WARNING] reasoning_content 通常是推理过程，不是最终答案")
+                print(f"[WARNING] 建议在模型配置中禁用推理模式，或使用非推理模型")
+                print(f"[WARNING] 当前将返回空内容以避免解析错误")
+                # 不返回 reasoning_content，避免后续解析错误
                 return ""
 
-            return content
+            # 两者都为空
+            print(f"[DEBUG] LLM 返回空内容，完整响应: {result}")
+            return ""
 
         except requests.HTTPError as e:
             # 如果 chat completions 失败，尝试 completions API（仅支持文本）
