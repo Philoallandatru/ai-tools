@@ -19,6 +19,11 @@ sync-errors.log
 scheduler.log
 task-scheduler.log
 
+# 测试和覆盖率文件
+.coverage
+htmlcov/
+*.log
+
 # 输出目录（爬取的源文件）
 sources/
 # 保留测试文件
