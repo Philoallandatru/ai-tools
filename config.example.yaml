@@ -4,135 +4,206 @@ sources:
   confluence:
     # Confluence Cloud 配置
     - name: "my-confluence-cloud"
-      type: "cloud"  # 可选，默认为 cloud
       url: "https://your-domain.atlassian.net"
-      username: "your-email@example.com"  # Cloud 必需
-      api_token: "your-api-token"  # Cloud API Token
+      username: "your-email@example.com"
+      api_token: "your-api-token-here"
       spaces:
         - key: "SPACE1"
           name: "Space 1"
-          max_pages: 100  # 可选：限制拉取的最大页面数（用于测试）
-          root_page_id: "123456"  # 可选：只抓取此页面及其子页面
-
-    # Confluence Server 配置
-    - name: "my-confluence-server"
-      type: "server"  # 必须指定为 server
-      url: "https://confluence.your-company.com"
-      api_token: "your-personal-access-token"  # Server PAT
-      # username 不需要（Server 使用 PAT 认证）
-      spaces:
-        - key: "DEV"
-          name: "Development"
+          # max_pages: 10              # 可选：限制拉取的最大页面数（用于测试）
+          # root_page_id: "123456"     # 可选：只抓取指定页面及其子页面
 
   jira:
     # Jira Cloud 配置
     - name: "my-jira-cloud"
-      type: "cloud"  # 可选，默认为 cloud
       url: "https://your-domain.atlassian.net"
-      username: "your-email@example.com"  # Cloud 必需
-      api_token: "your-api-token"  # Cloud API Token
+      username: "your-email@example.com"
+      api_token: "your-api-token-here"
       projects:
         - key: "PROJ"
-          name: "Project"
-
-    # Jira Server 配置
-    - name: "my-jira-server"
-      type: "server"  # 必须指定为 server
-      url: "https://jira.your-company.com"
-      api_token: "your-personal-access-token"  # Server PAT
-      # username 不需要（Server 使用 PAT 认证）
-      projects:
-        - key: "DEV"
-          name: "Development"
+          name: "Project Name"
 
 output:
   base_dir: "./sources"
 
 sync:
   state_file: "./.atlassian-sync-state.json"
-  max_workers: 5  # 并发数（1-10），默认 5
 
 error_handling:
   max_retries: 3
   retry_delay: 5
   error_log: "./sync-errors.log"
 
+# 性能配置
+performance:
+  # Jira/Confluence 爬取
+  max_results_per_page: 50        # 每页获取的最大结果数
+  max_workers: 10                  # 并发线程数
+
+  # 知识检索
+  knowledge_retrieval:
+    max_thread_workers: 3          # 知识检索并发数
+    wiki_query_timeout: 30         # Wiki 查询超时（秒）
+    max_keywords: 10               # 最大关键词数
+    min_keyword_length: 2          # 最小关键词长度
+    max_keyword_length: 20         # 最大关键词长度
+    max_description_length: 500    # 描述最大长度
+    wiki_content_preview: 1000     # Wiki 内容预览长度
+    keyword_extraction_max_tokens: 200   # 关键词提取最大 tokens
+    concept_analysis_max_tokens: 300     # 概念分析最大 tokens
+    max_search_keywords: 5         # 源文件搜索最大关键词数
+    max_results_per_keyword: 3     # 每个关键词最大搜索结果数
+
+# 缓存配置
+cache:
+  enabled: true
+  dir: "./.cache"                 # 缓存目录
+  ttl: 86400                      # 缓存有效期（秒），默认24小时
+
+# 定时任务配置
+scheduler:
+  enabled: false                  # 是否启用定时同步
+  sync_time: "02:00"              # 每日同步时间（24小时制）
+  timezone: "Asia/Shanghai"       # 时区
+  retry_on_failure: true
+  retry_interval: 3600            # 失败后重试间隔（秒）
+
 # LLM 配置
 llm:
-  provider: "llmstudio"  # 可选: "mock", "llmstudio"
-  base_url: "http://localhost:1234/v1"
-  model: "qwen2.5-14b-instruct"
+  provider: "openai"              # "mock" for testing, "openai" for OpenAI-compatible API
+  base_url: "http://127.0.0.1:1234/v1"  # LM Studio, Ollama, vLLM 等兼容服务地址
+  model: "qwen3.5-4b"             # 模型名称
   max_tokens: 2000
   temperature: 0.7
 
-# Vision LLM 配置（用于图像分析）
-vision_llm:
-  enabled: false  # 是否启用 Vision 功能
-  provider: "llmstudio"
-  base_url: "http://localhost:1234/v1"
-  model: "llava-v1.6-mistral-7b"
-  max_tokens: 1000
-  temperature: 0.7
-
-# 报告生成配置
+# 报告配置
 reports:
-  output_dir: "./reports"
+  # 固定跟踪的 Issue 列表（在周报/月报中始终显示）
+  fixed_issues:
+    - "PROJ-1"
+    - "PROJ-2"
 
-  # 报告分析配置（智能分析功能）
-  report_analysis:
-    enabled: true  # 是否启用智能分析
-    analyzers:
-      - name: "report_summary"
-        max_tokens: 500
-      - name: "key_insights"
-        max_tokens: 800
-      - name: "risk_analysis"
-        max_tokens: 600
+  # 报告格式配置
+  max_issues_per_report: 100      # 单个报告最大 issue 数
+  group_by: "status"              # 分组方式: status, priority, assignee, type
+  include_attachments: true       # 是否包含附件链接
 
-# 定时同步配置
-scheduler:
-  enabled: false  # 是否启用定时同步
-  interval: 3600  # 同步间隔（秒），默认 1 小时
+# 报告分析配置
+report_analysis:
+  enabled: true
 
-  # 性能配置
-  performance:
-    max_workers: 5  # 并发数
-    batch_size: 50  # 批处理大小
+  # 分析器配置
+  analyzers:
+    summary:
+      enabled: true
+      max_tokens: 300
 
-# 知识检索配置
-knowledge:
-  retriever:
-    enabled: true  # 是否启用知识检索
-    top_k: 5  # 返回前 K 个最相关的结果
-    min_score: 0.3  # 最小相似度分数（0-1）
+    insights:
+      enabled: true
+      max_items: 5
+      max_tokens: 500
 
-# 认证说明：
-#
-# Cloud 版本：
-#   - 需要 username（邮箱）和 API Token
+    risks:
+      enabled: true
+      dimensions:
+        - progress    # 进度风险
+        - priority    # 优先级风险
+        - resource    # 资源风险
+      thresholds:
+        stalled_days: 7           # 停滞天数阈值
+        overload_issues: 5        # 负载过重阈值
+      max_tokens: 600
+
+  # LLM配置（继承全局llm配置，可覆盖）
+  llm:
+    temperature: 0.3  # 分析任务使用较低温度
+
+# Jira 分析配置
+jira_analysis:
+  # 问题摘要配置
+  issue_summary:
+    enabled: true
+    use_llm: true              # 使用 LLM 综合提取（false 则使用 regex）
+    max_tokens: 1000           # LLM 提取最大 tokens
+
+    # 代码覆盖检查
+    code_coverage:
+      enabled: true
+      source_dir: "./sources"  # 源文件目录
+      max_results: 5
+
+# 自定义分析器配置
+custom_analyzers:
+  - name: "技术债务评估"
+    enabled: true
+    prompt: |
+      评估以下问题的技术债务影响：
+
+      Issue: [{key}] {title}
+      状态: {status}
+      优先级: {priority}
+
+      描述:
+      {description}
+
+      {knowledge_context}
+
+      请从以下角度分析：
+      1. 技术债务程度（低/中/高）
+      2. 影响范围（模块、系统、架构）
+      3. 建议优先级（立即处理/计划处理/可延后）
+
+      要求：
+      - 每个角度用 1-2 句话简洁回答
+      - 直接输出分析结果，不要输出思考过程
+    context:
+      include_knowledge: true
+      include_root_cause: false
+      include_similar_jira: false
+      include_comments: false
+    max_tokens: 1000
+
+# 日志配置
+logging:
+  level: "INFO"              # 日志级别: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "json"             # 日志格式: json (结构化) 或 text (传统格式)
+  output_file: null          # 可选：日志文件路径，null 表示只输出到控制台
+
+# ============================================================================
+# 配置说明
+# ============================================================================
+
+# 认证配置：
 #   - API Token 生成：https://id.atlassian.com/manage-profile/security/api-tokens
-#   - type: "cloud" 或省略（默认）
-#
-# Server 版本：
-#   - 只需要 Personal Access Token (PAT)
-#   - PAT 生成：在 Server 实例的个人设置中创建
-#   - type: "server" 必须指定
-#   - 不需要 username
-#
+#   - username: Atlassian 账号邮箱
+#   - api_token: 生成的 API Token
+
 # Confluence 高级选项：
 #   - max_pages: 限制拉取的最大页面数，用于测试或初步验证
 #   - root_page_id: 只抓取指定页面及其子页面，用于部分同步
-#
+
 # LLM 配置说明：
-#   - provider: "mock" 用于测试，"llmstudio" 用于实际 LLM 调用
-#   - base_url: LLM Studio 服务地址
-#   - model: 使用的模型名称
+#   - provider: "mock" 用于测试，"openai" 用于 OpenAI 兼容 API
+#   - base_url: LM Studio (http://127.0.0.1:1234/v1)
+#               Ollama (http://127.0.0.1:11434/v1)
+#               vLLM 或其他兼容服务
+#   - model: 使用的模型名称（根据服务提供商而定）
 #   - max_tokens: 生成的最大 token 数
 #   - temperature: 生成温度（0-1），越高越随机
-#
+
 # 报告分析说明：
 #   - enabled: 控制是否启用智能分析功能
 #   - analyzers: 配置各个分析器的参数
-#     * report_summary: 生成执行摘要
-#     * key_insights: 识别关键发现
-#     * risk_analysis: 评估潜在风险
+#     * summary: 生成执行摘要
+#     * insights: 识别关键发现和趋势
+#     * risks: 评估潜在风险（进度、优先级、资源）
+
+# 性能调优：
+#   - max_workers: 并发线程数，根据网络和 API 限制调整
+#   - max_results_per_page: 每页结果数，影响 API 调用次数
+#   - cache.ttl: 缓存有效期，减少重复请求
+
+# 定时任务：
+#   - enabled: 是否启用自动同步
+#   - sync_time: 每日同步时间（24小时制）
+#   - timezone: 时区设置
