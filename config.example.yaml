@@ -73,7 +73,7 @@ llm:
   provider: "openai"              # "mock" for testing, "openai" for OpenAI-compatible API
   base_url: "http://127.0.0.1:1234/v1"  # LM Studio, Ollama, vLLM 等兼容服务地址
   model: "qwen3.5-4b"             # 模型名称
-  max_tokens: 2000
+  max_tokens: 8000  # 推理模型需要更大的 token 限制（推理过程 + 最终答案）
   temperature: 0.7
 
 # 报告配置
@@ -96,12 +96,12 @@ report_analysis:
   analyzers:
     summary:
       enabled: true
-      max_tokens: 300
+      max_tokens: 2000  # 推理模型需要更大的限制
 
     insights:
       enabled: true
       max_items: 5
-      max_tokens: 500
+      max_tokens: 3000  # 推理模型需要更大的限制
 
     risks:
       enabled: true
@@ -112,7 +112,7 @@ report_analysis:
       thresholds:
         stalled_days: 7           # 停滞天数阈值
         overload_issues: 5        # 负载过重阈值
-      max_tokens: 600
+      max_tokens: 3000  # 推理模型需要更大的限制
 
   # LLM配置（继承全局llm配置，可覆盖）
   llm:
@@ -124,7 +124,7 @@ jira_analysis:
   issue_summary:
     enabled: true
     use_llm: true              # 使用 LLM 综合提取（false 则使用 regex）
-    max_tokens: 1000           # LLM 提取最大 tokens
+    max_tokens: 4000           # LLM 提取最大 tokens（推理模型需要更大的限制）
 
     # 代码覆盖检查
     code_coverage:
@@ -161,7 +161,7 @@ custom_analyzers:
       include_root_cause: false
       include_similar_jira: false
       include_comments: false
-    max_tokens: 1000
+    max_tokens: 4000  # 推理模型需要更大的限制
 
 # 日志配置
 logging:
