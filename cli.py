@@ -375,7 +375,14 @@ def find_jira(issue_key, source_dir):
     """查找 Jira issue"""
     output = CLIOutput()
     source_path = Path(source_dir)
-    jira_files = list(source_path.glob(f'**/jira/**/*{issue_key}*.md'))
+    # 支持两种目录结构：sources/jira/*.md 和 sources/*.md
+    jira_files = list(source_path.glob(f'**/*{issue_key}*.md'))
+
+    # 精确匹配：只保留文件名中包含完整 issue key 的文件
+    # 使用正则表达式确保 issue_key 是完整的（有单词边界）
+    import re
+    pattern = re.compile(rf'\b{re.escape(issue_key)}\b')
+    jira_files = [f for f in jira_files if pattern.search(f.name)]
 
     if not jira_files:
         output.warning(f"未找到 issue: {issue_key}")

@@ -28,18 +28,18 @@ def parse_jira_metadata(file_path: Path) -> Optional[Dict[str, Any]]:
         # Parse metadata from content
         metadata = {'issue_key': issue_key, 'file_path': str(file_path)}
 
-        # Extract status
-        status_match = re.search(r'\*\*Status\*\*:\s*(.+)', content)
+        # Extract status (支持中英文字段名)
+        status_match = re.search(r'[-*]\s*\*\*(?:状态|Status)\*\*:\s*(.+)', content)
         if status_match:
             metadata['status'] = status_match.group(1).strip()
 
-        # Extract priority
-        priority_match = re.search(r'\*\*Priority\*\*:\s*(.+)', content)
+        # Extract priority (支持中英文字段名)
+        priority_match = re.search(r'[-*]\s*\*\*(?:优先级|Priority)\*\*:\s*(.+)', content)
         if priority_match:
             metadata['priority'] = priority_match.group(1).strip()
 
-        # Extract issue type
-        type_match = re.search(r'\*\*Issue Type\*\*:\s*(.+)', content)
+        # Extract issue type (支持中英文字段名)
+        type_match = re.search(r'[-*]\s*\*\*(?:类型|Issue Type|Type)\*\*:\s*(.+)', content)
         if type_match:
             metadata['issue_type'] = type_match.group(1).strip()
 
