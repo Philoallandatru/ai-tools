@@ -2,7 +2,7 @@
 根因分析器 - 使用 LLM 分析问题根因
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
@@ -12,14 +12,16 @@ from crawler.llm_utils import clean_llm_output, extract_structured_response
 class RootCauseAnalyzer(BaseAnalyzer):
     """根因分析器 - 分析问题的直接原因、深层原因和触发条件"""
 
-    def __init__(self, llm_client: BaseLLMClient):
+    def __init__(self, llm_client: BaseLLMClient, config: Optional[Dict[str, Any]] = None):
         """
         初始化根因分析器
 
         Args:
             llm_client: LLM 客户端
+            config: 配置字典
         """
         self.llm_client = llm_client
+        self.config = config or {}
 
     def get_name(self) -> str:
         return "root_cause"
@@ -40,7 +42,8 @@ class RootCauseAnalyzer(BaseAnalyzer):
 
         # 调用 LLM
         context.increment_llm_calls()
-        response = self.llm_client.generate(prompt, max_tokens=1000)
+        max_tokens = self.config.get('max_tokens', 3000)
+        response = self.llm_client.generate(prompt, max_tokens=max_tokens)
 
         # 清理输出
         response = clean_llm_output(response)
@@ -87,6 +90,7 @@ Issue: [{jira_data['key']}] {jira_data['title']}
 3. 触发条件：在什么条件下会触发这个问题？
 
 要求：
+- 必须用中文回答
 - 每个层面用 1-2 句话简洁回答
 - 直接输出分析结果，不要输出思考过程
 - 不要使用 <think> 标签

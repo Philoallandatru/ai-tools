@@ -2,7 +2,7 @@
 行动建议生成器 - 基于分析结果生成行动建议
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
@@ -12,14 +12,16 @@ from crawler.llm_utils import clean_llm_output
 class ActionRecommender(BaseAnalyzer):
     """行动建议生成器 - 综合所有分析结果生成短期、中期、长期建议"""
 
-    def __init__(self, llm_client: BaseLLMClient):
+    def __init__(self, llm_client: BaseLLMClient, config: Optional[Dict[str, Any]] = None):
         """
         初始化行动建议生成器
 
         Args:
             llm_client: LLM 客户端
+            config: 配置字典
         """
         self.llm_client = llm_client
+        self.config = config or {}
 
     def get_name(self) -> str:
         return "actions"
@@ -40,7 +42,8 @@ class ActionRecommender(BaseAnalyzer):
 
         # 调用 LLM
         context.increment_llm_calls()
-        response = self.llm_client.generate(prompt, max_tokens=1200)
+        max_tokens = self.config.get('max_tokens', 2000)
+        response = self.llm_client.generate(prompt, max_tokens=max_tokens)
 
         # 清理输出
         response = clean_llm_output(response)
@@ -100,6 +103,7 @@ Issue: [{jira_data['key']}] {jira_data['title']}
 3. 长期行动（3 个月以上）：系统性的优化和预防措施
 
 要求：
+- 必须用中文回答
 - 每个维度提供 2-3 条具体可执行的建议
 - 使用列表格式（数字或破折号开头）
 - 直接输出建议，不要输出思考过程

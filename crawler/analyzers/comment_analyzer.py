@@ -2,7 +2,7 @@
 评论分析器 - 分析 Jira 评论的时间线、决策和合理性
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from crawler.analyzers.base import BaseAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
@@ -12,14 +12,16 @@ from crawler.llm_utils import clean_llm_output
 class CommentAnalyzer(BaseAnalyzer):
     """评论分析器 - 分析评论的时间线、关键决策和合理性"""
 
-    def __init__(self, llm_client: BaseLLMClient):
+    def __init__(self, llm_client: BaseLLMClient, config: Optional[Dict[str, Any]] = None):
         """
         初始化评论分析器
 
         Args:
             llm_client: LLM 客户端
+            config: 配置字典
         """
         self.llm_client = llm_client
+        self.config = config or {}
 
     def get_name(self) -> str:
         return "comments"
@@ -96,7 +98,8 @@ class CommentAnalyzer(BaseAnalyzer):
             评论分析结果
         """
         prompt = self._build_comment_prompt(index, comment, jira_data)
-        response = self.llm_client.generate(prompt, max_tokens=600)
+        max_tokens = self.config.get('max_tokens', 4000)
+        response = self.llm_client.generate(prompt, max_tokens=max_tokens)
 
         # 清理输出
         response = clean_llm_output(response)
@@ -131,7 +134,10 @@ Issue: [{jira_data['key']}] {jira_data['title']}
 2. 关键决策：这条评论中是否包含重要的技术决策？如果有，是什么决策？
 3. 合理性评估：这条评论中的分析或决策是否合理？有无明显问题？
 
-请用简洁的语言回答，每个维度 1-2 句话。
+要求：
+- 必须用中文回答
+- 直接输出分析结果，不要输出思考过程
+- 用简洁的语言回答，每个维度 1-2 句话
 """
         return prompt
 

@@ -136,6 +136,22 @@ jira_analysis:
   similar_jira:
     max_tokens: 2000           # 相关性分析最大 tokens（推理模型需要更大的限制）
 
+  # 根因分析配置
+  root_cause:
+    max_tokens: 3000           # 根因分析最大 tokens（推理模型需要更大的限制）
+
+  # 闭环检查配置
+  closed_loop:
+    max_tokens: 3000           # 闭环检查最大 tokens（推理模型需要更大的限制）
+
+  # 评论分析配置
+  comments:
+    max_tokens: 4000           # 评论分析最大 tokens（推理模型需要更大的限制）
+
+  # 行动建议配置
+  action_recommender:
+    max_tokens: 2000           # 行动建议最大 tokens（推理模型需要更大的限制）
+
 # 自定义分析器配置
 custom_analyzers:
   - name: "技术债务评估"

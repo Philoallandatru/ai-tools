@@ -115,6 +115,9 @@ class AnalysisService:
     ) -> JiraDeepAnalyzer:
         """Create and register the standard Jira analysis pipeline."""
         analyzer = JiraDeepAnalyzer(source_dir=source_dir, llm_client=llm_client)
+
+        jira_analysis_config = self.config.get("jira_analysis", {})
+
         analyzer.register_analyzer(
             KnowledgeRetriever(
                 source_dir=source_dir,
@@ -123,9 +126,11 @@ class AnalysisService:
                 config=self.config,
             )
         )
-        analyzer.register_analyzer(RootCauseAnalyzer(llm_client))
 
-        similar_jira_config = self.config.get("jira_analysis", {}).get("similar_jira", {})
+        root_cause_config = jira_analysis_config.get("root_cause", {})
+        analyzer.register_analyzer(RootCauseAnalyzer(llm_client, config=root_cause_config))
+
+        similar_jira_config = jira_analysis_config.get("similar_jira", {})
         analyzer.register_analyzer(
             SimilarJiraFinder(
                 source_dir=source_dir,
@@ -134,11 +139,17 @@ class AnalysisService:
                 config=similar_jira_config
             )
         )
-        analyzer.register_analyzer(ClosedLoopChecker(llm_client))
-        analyzer.register_analyzer(CommentAnalyzer(llm_client))
-        analyzer.register_analyzer(ActionRecommender(llm_client))
 
-        issue_summary_config = self.config.get("jira_analysis", {}).get("issue_summary", {})
+        closed_loop_config = jira_analysis_config.get("closed_loop", {})
+        analyzer.register_analyzer(ClosedLoopChecker(llm_client, config=closed_loop_config))
+
+        comments_config = jira_analysis_config.get("comments", {})
+        analyzer.register_analyzer(CommentAnalyzer(llm_client, config=comments_config))
+
+        action_recommender_config = jira_analysis_config.get("action_recommender", {})
+        analyzer.register_analyzer(ActionRecommender(llm_client, config=action_recommender_config))
+
+        issue_summary_config = jira_analysis_config.get("issue_summary", {})
         if issue_summary_config.get("enabled", True):
             analyzer.register_analyzer(
                 IssueSummaryAnalyzer(llm_client, config=issue_summary_config)
