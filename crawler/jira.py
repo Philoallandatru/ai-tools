@@ -440,7 +440,7 @@ class JiraCrawler:
 
     def _download_single_attachment(self, attachment: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        下载单个附件（带重试）
+        下载单个附件（带重试，兼容 Server 和 Cloud）
 
         Args:
             attachment: 附件信息
@@ -450,14 +450,28 @@ class JiraCrawler:
         """
         @self.error_handler.retry_on_failure
         def download():
-            # 从 content URL 中提取 attachment ID
-            # URL 格式: https://xxx.atlassian.net/rest/api/2/attachment/content/10000
-            content_url = attachment['content']
-            attachment_id = content_url.split('/')[-1]
+            try:
+                # 方法 1: 优先使用 get_attachment_content (推荐，返回 bytes)
+                # URL 格式: https://xxx.atlassian.net/rest/api/2/attachment/content/10000
+                content_url = attachment['content']
+                attachment_id = content_url.split('/')[-1]
 
-            # 使用 get_attachment_content() 方法获取二进制内容
-            # 这个方法会正确返回 bytes 类型，不会损坏二进制数据
-            content = self.client.get_attachment_content(attachment_id)
+                # 使用 get_attachment_content() 方法获取二进制内容
+                # 这个方法会正确返回 bytes 类型，不会损坏二进制数据
+                content = self.client.get_attachment_content(attachment_id)
+
+            except (AttributeError, Exception) as e:
+                # 方法 2: 降级方案 - 直接使用 download URL (兼容 Server)
+                # 某些 Jira Server 版本可能不支持 get_attachment_content
+                print(f"[Jira] get_attachment_content 失败，使用降级方案: {str(e)}")
+                download_url = attachment['content']
+
+                # 使用 get() 方法直接下载，not_json_response=True 确保返回原始二进制数据
+                content = self.client.get(download_url, not_json_response=True)
+
+                # 确保返回的是 bytes 类型
+                if isinstance(content, str):
+                    content = content.encode('latin-1')
 
             return {
                 'filename': attachment['filename'],
