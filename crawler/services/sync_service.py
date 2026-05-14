@@ -209,6 +209,7 @@ class SyncService:
             self.storage,
             max_pages=space_config.get("max_pages"),
             root_page_id=space_config.get("root_page_id"),
+            root_page_title=space_config.get("root_page_title"),
         )
 
     def _sync_jira_project(

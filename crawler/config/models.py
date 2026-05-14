@@ -17,6 +17,7 @@ class SpaceConfig(BaseModel):
     name: str = Field(..., description="Space name")
     max_pages: Optional[int] = Field(None, description="Maximum pages to fetch")
     root_page_id: Optional[str] = Field(None, description="Root page ID to start from")
+    root_page_title: Optional[str] = Field(None, description="Root page title to start from")
 
 
 class ProjectConfig(BaseModel):

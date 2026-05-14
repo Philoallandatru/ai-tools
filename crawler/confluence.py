@@ -32,13 +32,43 @@ class ConfluenceCrawler:
         self.error_handler = error_handler
         self.base_url = url
 
+    def get_page_by_title(self, space_key: str, title: str) -> Optional[Dict[str, Any]]:
+        """
+        通过标题在指定 space 中查找页面
+
+        Args:
+            space_key: Space key
+            title: 页面标题
+
+        Returns:
+            页面信息字典，如果未找到则返回 None
+        """
+        try:
+            # 使用 CQL 查询精确匹配标题
+            cql = f'space = "{space_key}" AND title = "{title}"'
+            result = self.client.cql(cql, limit=1)
+
+            if result and 'results' in result and len(result['results']) > 0:
+                page = result['results'][0]
+                return {
+                    'id': page['content']['id'],
+                    'title': page['content']['title'],
+                    'type': page['content']['type'],
+                    'space': page['content']['space']['key'] if 'space' in page['content'] else space_key
+                }
+            return None
+        except Exception as e:
+            print(f"[Confluence] 查找页面失败: {str(e)}")
+            return None
+
     def crawl_space(
         self,
         source_name: str,
         space_key: str,
         storage: StorageManager,
         max_pages: Optional[int] = None,
-        root_page_id: Optional[str] = None
+        root_page_id: Optional[str] = None,
+        root_page_title: Optional[str] = None
     ) -> Dict[str, int]:
         """
         爬取指定 space 的所有页面
@@ -48,7 +78,8 @@ class ConfluenceCrawler:
             space_key: Space key
             storage: 存储管理器
             max_pages: 可选，限制拉取的最大页面数（用于测试）
-            root_page_id: 可选，只抓取指定页面及其子页面
+            root_page_id: 可选，只抓取指定页面及其子页面（通过 ID）
+            root_page_title: 可选，只抓取指定页面及其子页面（通过标题）
 
         Returns:
             统计信息字典 {'pages': int, 'attachments': int, 'skipped': int, 'total': int}
@@ -62,6 +93,18 @@ class ConfluenceCrawler:
             print(f"[Confluence] URL: {self.base_url}")
             if max_pages:
                 print(f"[Confluence] 限制: 最多拉取 {max_pages} 个页面")
+
+            # 如果指定了标题，先通过标题查找页面 ID
+            if root_page_title:
+                print(f"[Confluence] 通过标题查找根页面: '{root_page_title}'")
+                root_page = self.get_page_by_title(space_key, root_page_title)
+                if root_page:
+                    root_page_id = root_page['id']
+                    print(f"[Confluence] 找到页面: {root_page['title']} (ID: {root_page_id})")
+                else:
+                    print(f"[Confluence] 错误: 未找到标题为 '{root_page_title}' 的页面")
+                    return stats
+
             if root_page_id:
                 print(f"[Confluence] 限制: 只抓取页面 {root_page_id} 及其子页面")
 
