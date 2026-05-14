@@ -3,25 +3,13 @@
 """
 
 from typing import Dict, Any, Optional
-from crawler.analyzers.base import BaseAnalyzer
+from crawler.analyzers.configurable_base import ConfigurableAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
-from crawler.llm_utils import clean_llm_output
 
 
-class ActionRecommender(BaseAnalyzer):
+class ActionRecommender(ConfigurableAnalyzer):
     """行动建议生成器 - 综合所有分析结果生成短期、中期、长期建议"""
-
-    def __init__(self, llm_client: BaseLLMClient, config: Optional[Dict[str, Any]] = None):
-        """
-        初始化行动建议生成器
-
-        Args:
-            llm_client: LLM 客户端
-            config: 配置字典
-        """
-        self.llm_client = llm_client
-        self.config = config or {}
 
     def get_name(self) -> str:
         return "actions"
@@ -40,13 +28,8 @@ class ActionRecommender(BaseAnalyzer):
         # 构建提示词（综合前面所有分析结果）
         prompt = self._build_prompt(jira_data, context)
 
-        # 调用 LLM
-        context.increment_llm_calls()
-        max_tokens = self.config.get('max_tokens', 2000)
-        response = self.llm_client.generate(prompt, max_tokens=max_tokens)
-
-        # 清理输出
-        response = clean_llm_output(response)
+        # 调用 LLM (使用基类方法)
+        response = self.call_llm(prompt, context, default_max_tokens=2000)
 
         # 解析响应
         result = self._parse_response(response)
@@ -64,7 +47,7 @@ class ActionRecommender(BaseAnalyzer):
         Returns:
             提示词字符串
         """
-        # 收集前面的分析结果
+        # 收集前面的分析结果（使用基类方法）
         root_cause = context.get_result('root_cause')
         similar_jira = context.get_result('similar_jira')
         closed_loop = context.get_result('closed_loop')
@@ -102,12 +85,9 @@ Issue: [{jira_data['key']}] {jira_data['title']}
 2. 中期行动（1-2 个月内）：需要规划和实施的改进
 3. 长期行动（3 个月以上）：系统性的优化和预防措施
 
-要求：
-- 必须用中文回答
+{self.build_chinese_requirements()}
 - 每个维度提供 2-3 条具体可执行的建议
 - 使用列表格式（数字或破折号开头）
-- 直接输出建议，不要输出思考过程
-- 不要使用 <think> 标签
 - 按照以下格式回答：
 
 短期行动（1-2 周内）：
@@ -136,12 +116,12 @@ Issue: [{jira_data['key']}] {jira_data['title']}
         """
         import re
 
-        # 额外清理：移除代码块标记
+        # 额外清理：移除代码块标记和占位符
         response = re.sub(r'^```\s*\n', '', response, flags=re.MULTILINE)
         response = re.sub(r'\n```\s*$', '', response, flags=re.MULTILINE)
         response = re.sub(r'```', '', response)
 
-        # 移除占位符行（包含 [具体建议] 的行）
+        # 移除占位符行
         lines = response.split('\n')
         cleaned_lines = [line for line in lines if '[具体建议]' not in line]
         response = '\n'.join(cleaned_lines)
@@ -153,51 +133,31 @@ Issue: [{jira_data['key']}] {jira_data['title']}
             'raw_response': response
         }
 
-        # 提取短期行动（支持带括号的时间说明）
+        # 提取短期行动
         short_match = re.search(
             r'短期行动[^：:]*[：:](.+?)(?=中期行动|长期行动|$)',
             response,
             re.DOTALL | re.IGNORECASE
         )
         if short_match:
-            result['short_term'] = self._extract_action_items(short_match.group(1))
+            result['short_term'] = self.extract_list_items(short_match.group(1))
 
-        # 提取中期行动（支持带括号的时间说明）
+        # 提取中期行动
         medium_match = re.search(
             r'中期行动[^：:]*[：:](.+?)(?=长期行动|$)',
             response,
             re.DOTALL | re.IGNORECASE
         )
         if medium_match:
-            result['medium_term'] = self._extract_action_items(medium_match.group(1))
+            result['medium_term'] = self.extract_list_items(medium_match.group(1))
 
-        # 提取长期行动（支持带括号的时间说明）
+        # 提取长期行动
         long_match = re.search(
             r'长期行动[^：:]*[：:](.+?)$',
             response,
             re.DOTALL | re.IGNORECASE
         )
         if long_match:
-            result['long_term'] = self._extract_action_items(long_match.group(1))
+            result['long_term'] = self.extract_list_items(long_match.group(1))
 
         return result
-
-    def _extract_action_items(self, text: str) -> list:
-        """
-        从文本中提取行动项
-
-        Args:
-            text: 文本内容
-
-        Returns:
-            行动项列表
-        """
-        import re
-
-        # 提取列表项（支持数字、破折号、星号等）
-        items = re.findall(r'(?:^|\n)\s*(?:\d+[.、)]|[-*•])\s*(.+?)(?=\n|$)', text)
-
-        # 清理并过滤
-        items = [item.strip() for item in items if item.strip()]
-
-        return items[:5]  # 最多返回 5 条

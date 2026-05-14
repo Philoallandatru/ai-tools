@@ -3,18 +3,18 @@
 """
 
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pathlib import Path
-from crawler.analyzers.base import BaseAnalyzer
+from crawler.analyzers.configurable_base import ConfigurableAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
-from crawler.llm_utils import clean_llm_output
 
 
-class SimilarJiraFinder(BaseAnalyzer):
+class SimilarJiraFinder(ConfigurableAnalyzer):
     """类似 Jira 查找器 - 基于关键词、问题类型和根因匹配，并使用 LLM 分析相关性"""
 
-    def __init__(self, source_dir: str = './sources', top_k: int = 3, llm_client: BaseLLMClient = None, config: Dict[str, Any] = None):
+    def __init__(self, source_dir: str = './sources', top_k: int = 3,
+                 llm_client: BaseLLMClient = None, config: Optional[Dict[str, Any]] = None):
         """
         初始化类似 Jira 查找器
 
@@ -24,10 +24,9 @@ class SimilarJiraFinder(BaseAnalyzer):
             llm_client: LLM 客户端（用于深度关联分析）
             config: 配置字典
         """
+        super().__init__(llm_client, config)
         self.source_dir = Path(source_dir)
         self.top_k = top_k
-        self.llm_client = llm_client
-        self.config = config or {}
 
     def get_name(self) -> str:
         return "similar_jira"
@@ -43,15 +42,13 @@ class SimilarJiraFinder(BaseAnalyzer):
         Returns:
             包含相似 Issues 列表的字典
         """
-        import sys
-
         # 1. 获取所有 Jira Issues
-        print("   [similar_jira] 加载所有 issues...", flush=True)
+        self.log_progress("加载所有 issues...")
         all_issues = self._load_all_issues()
-        print(f"   [similar_jira] 找到 {len(all_issues)} 个 issues", flush=True)
+        self.log_progress(f"找到 {len(all_issues)} 个 issues")
 
         # 2. 计算相似度
-        print("   [similar_jira] 计算相似度...", flush=True)
+        self.log_progress("计算相似度...")
         similarities = []
         current_key = jira_data['key']
 
@@ -73,19 +70,32 @@ class SimilarJiraFinder(BaseAnalyzer):
         # 3. 排序并返回 Top K
         similarities.sort(key=lambda x: x['similarity_score'], reverse=True)
         top_similar = similarities[:self.top_k]
-        print(f"   [similar_jira] 找到 {len(top_similar)} 个相似 issues", flush=True)
+        self.log_progress(f"找到 {len(top_similar)} 个相似 issues")
 
         # 4. 使用 LLM 分析相关性（如果有 LLM 客户端）
         if self.llm_client and top_similar:
-            print(f"   [similar_jira] 开始 LLM 相关性分析（{len(top_similar)} 个）...", flush=True)
-            for i, similar in enumerate(top_similar, 1):
-                print(f"   [similar_jira] 分析 {i}/{len(top_similar)}: {similar['key']}", flush=True)
-                analysis = self._analyze_relevance(jira_data, similar, context)
-                similar['relevance_analysis'] = analysis
-                context.increment_llm_calls()
-                print(f"   [similar_jira] 完成 {i}/{len(top_similar)}", flush=True)
+            self.log_progress(f"开始 LLM 相关性分析（{len(top_similar)} 个）...")
 
-        print("   [similar_jira] 分析完成", flush=True)
+            # 构建所有 prompts
+            prompts = [
+                self._build_relevance_prompt(jira_data, similar)
+                for similar in top_similar
+            ]
+
+            # 并行调用 LLM
+            responses = self.call_llm_parallel(
+                prompts,
+                context,
+                max_workers=3,
+                default_max_tokens=2000,
+                progress_callback=lambda curr, total: self.log_step(curr, total, "分析相关性")
+            )
+
+            # 添加分析结果
+            for similar, response in zip(top_similar, responses):
+                similar['relevance_analysis'] = response.strip()
+
+        self.log_progress("分析完成")
         return {
             'similar_issues': top_similar,
             'total_candidates': len(similarities)
@@ -178,35 +188,26 @@ class SimilarJiraFinder(BaseAnalyzer):
 
         return min(score, 1.0)  # 确保不超过 1.0
 
-    def _analyze_relevance(
+    def _build_relevance_prompt(
         self,
         current: Dict[str, Any],
-        similar: Dict[str, Any],
-        context: AnalysisContext
+        similar: Dict[str, Any]
     ) -> str:
         """
-        使用 LLM 分析两个 Issue 的相关性
+        构建相关性分析 prompt
 
         Args:
             current: 当前 Issue
             similar: 相似 Issue
-            context: 分析上下文
 
         Returns:
-            相关性分析文本
+            prompt 字符串
         """
-        import sys
-        # 获取根因分析结果
-        root_cause = context.get_result('root_cause')
-        root_cause_text = ""
-        if root_cause and root_cause.get('direct_cause'):
-            root_cause_text = f"\n当前问题根因: {root_cause['direct_cause']}"
-
         prompt = f"""请分析以下两个 Jira Issue 的相关性：
 
 当前问题:
 - [{current['key']}] {current['title']}
-- 描述: {current['description'][:300]}{root_cause_text}
+- 描述: {current['description'][:300]}
 
 相似问题:
 - [{similar['key']}] {similar['title']}
@@ -216,23 +217,7 @@ class SimilarJiraFinder(BaseAnalyzer):
 1. 共同点：它们有什么相似之处？（技术领域、问题类型、触发条件等）
 2. 参考价值：这个相似问题能为当前问题提供什么参考？（解决思路、注意事项等）
 
-要求：
-- 必须用中文回答
+{self.build_chinese_requirements()}
 - 直接回答，不要使用 Markdown 格式
-- 不要输出思考过程
 """
-
-        try:
-            print(f"   [similar_jira] 调用 LLM (prompt 长度: {len(prompt)} 字符)...", flush=True)
-            sys.stdout.flush()
-            max_tokens = self.config.get('max_tokens', 2000)
-            response = self.llm_client.generate(prompt, max_tokens=max_tokens)
-            print(f"   [similar_jira] LLM 响应完成 (长度: {len(response)} 字符)", flush=True)
-            sys.stdout.flush()
-            # 清理响应（移除 <think> 标签等）
-            response = clean_llm_output(response)
-            return response.strip()
-        except Exception as e:
-            print(f"   [similar_jira] LLM 调用失败: {str(e)}", flush=True)
-            sys.stdout.flush()
-            return f"相关性分析失败: {str(e)}"
+        return prompt
