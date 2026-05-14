@@ -440,7 +440,7 @@ class JiraCrawler:
 
     def _download_single_attachment(self, attachment: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        下载单个附件（带重试，兼容 Server 和 Cloud）
+        下载单个附件（多重降级方案，兼容 Server 和 Cloud）
 
         Args:
             attachment: 附件信息
@@ -450,32 +450,67 @@ class JiraCrawler:
         """
         @self.error_handler.retry_on_failure
         def download():
+            content = None
+            content_url = attachment['content']
+            attachment_id = content_url.split('/')[-1]
+            filename = attachment['filename']
+
+            # 方法 1: 使用 get_attachment_content (推荐，直接返回 bytes)
             try:
-                # 方法 1: 优先使用 get_attachment_content (推荐，返回 bytes)
-                # URL 格式: https://xxx.atlassian.net/rest/api/2/attachment/content/10000
-                content_url = attachment['content']
-                attachment_id = content_url.split('/')[-1]
-
-                # 使用 get_attachment_content() 方法获取二进制内容
-                # 这个方法会正确返回 bytes 类型，不会损坏二进制数据
                 content = self.client.get_attachment_content(attachment_id)
+                if content and isinstance(content, bytes):
+                    return {
+                        'filename': filename,
+                        'content': content
+                    }
+            except Exception as e:
+                print(f"[Jira] 方法1失败 (get_attachment_content): {str(e)}")
 
-            except (AttributeError, Exception) as e:
-                # 方法 2: 降级方案 - 直接使用 download URL (兼容 Server)
-                # 某些 Jira Server 版本可能不支持 get_attachment_content
-                print(f"[Jira] get_attachment_content 失败，使用降级方案: {str(e)}")
-                download_url = attachment['content']
+            # 方法 2: 使用 client.get() 直接下载 URL
+            try:
+                content = self.client.get(content_url, not_json_response=True)
+                if content:
+                    # 确保是 bytes 类型
+                    if isinstance(content, str):
+                        content = content.encode('latin-1')
+                    if isinstance(content, bytes):
+                        return {
+                            'filename': filename,
+                            'content': content
+                        }
+            except Exception as e:
+                print(f"[Jira] 方法2失败 (client.get): {str(e)}")
 
-                # 使用 get() 方法直接下载，not_json_response=True 确保返回原始二进制数据
-                content = self.client.get(download_url, not_json_response=True)
+            # 方法 3: 使用 requests 直接下载（最后的降级方案）
+            try:
+                import requests
+                # 获取认证信息
+                auth = None
+                if hasattr(self.client, 'username') and hasattr(self.client, 'password'):
+                    auth = (self.client.username, self.client.password)
+                elif hasattr(self.client, 'token'):
+                    # Server 版本使用 token
+                    headers = {'Authorization': f'Bearer {self.client.token}'}
+                    response = requests.get(content_url, headers=headers, timeout=30)
+                else:
+                    response = requests.get(content_url, auth=auth, timeout=30)
 
-                # 确保返回的是 bytes 类型
-                if isinstance(content, str):
-                    content = content.encode('latin-1')
+                if not hasattr(self.client, 'token'):
+                    response = requests.get(content_url, auth=auth, timeout=30)
 
-            return {
-                'filename': attachment['filename'],
-                'content': content
-            }
+                response.raise_for_status()
+                content = response.content
+
+                if content and isinstance(content, bytes):
+                    print(f"[Jira] 方法3成功 (requests): {filename}")
+                    return {
+                        'filename': filename,
+                        'content': content
+                    }
+            except Exception as e:
+                print(f"[Jira] 方法3失败 (requests): {str(e)}")
+
+            # 所有方法都失败
+            raise Exception(f"所有下载方法都失败: {filename}")
 
         return download()
