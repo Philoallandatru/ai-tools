@@ -435,18 +435,14 @@ class JiraCrawler:
         """
         @self.error_handler.retry_on_failure
         def download():
+            # 从 content URL 中提取 attachment ID
+            # URL 格式: https://xxx.atlassian.net/rest/api/2/attachment/content/10000
             content_url = attachment['content']
-            response = self.client.get(content_url)
+            attachment_id = content_url.split('/')[-1]
 
-            # 确保返回字节内容
-            if isinstance(response, bytes):
-                content = response
-            elif isinstance(response, str):
-                content = response.encode('utf-8')
-            elif hasattr(response, 'content'):
-                content = response.content
-            else:
-                content = str(response).encode('utf-8')
+            # 使用 get_attachment_content() 方法获取二进制内容
+            # 这个方法会正确返回 bytes 类型，不会损坏二进制数据
+            content = self.client.get_attachment_content(attachment_id)
 
             return {
                 'filename': attachment['filename'],
