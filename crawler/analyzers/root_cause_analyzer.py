@@ -3,25 +3,13 @@
 """
 
 from typing import Dict, Any, Optional
-from crawler.analyzers.base import BaseAnalyzer
+from crawler.analyzers.configurable_base import ConfigurableAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
-from crawler.llm_utils import clean_llm_output, extract_structured_response
 
 
-class RootCauseAnalyzer(BaseAnalyzer):
+class RootCauseAnalyzer(ConfigurableAnalyzer):
     """根因分析器 - 分析问题的直接原因、深层原因和触发条件"""
-
-    def __init__(self, llm_client: BaseLLMClient, config: Optional[Dict[str, Any]] = None):
-        """
-        初始化根因分析器
-
-        Args:
-            llm_client: LLM 客户端
-            config: 配置字典
-        """
-        self.llm_client = llm_client
-        self.config = config or {}
 
     def get_name(self) -> str:
         return "root_cause"
@@ -40,13 +28,8 @@ class RootCauseAnalyzer(BaseAnalyzer):
         # 构建提示词
         prompt = self._build_prompt(jira_data, context)
 
-        # 调用 LLM
-        context.increment_llm_calls()
-        max_tokens = self.config.get('max_tokens', 3000)
-        response = self.llm_client.generate(prompt, max_tokens=max_tokens)
-
-        # 清理输出
-        response = clean_llm_output(response)
+        # 调用 LLM (使用基类方法)
+        response = self.call_llm(prompt, context, default_max_tokens=3000)
 
         # 解析响应
         result = self._parse_response(response)
@@ -64,14 +47,8 @@ class RootCauseAnalyzer(BaseAnalyzer):
         Returns:
             提示词字符串
         """
-        # 获取知识检索结果作为上下文
-        knowledge = context.get_result('knowledge')
-        knowledge_context = ""
-
-        if knowledge and knowledge.get('wiki_concepts'):
-            knowledge_context = "\n相关技术知识:\n"
-            for concept in knowledge['wiki_concepts'][:3]:
-                knowledge_context += f"- {concept['keyword']}: {concept['content'][:200]}\n"
+        # 使用基类的知识上下文格式化
+        knowledge_context = self.format_knowledge_context(context)
 
         prompt = f"""请对以下 Jira Issue 进行根因分析：
 
@@ -89,11 +66,7 @@ Issue: [{jira_data['key']}] {jira_data['title']}
 2. 深层原因：导致这个问题的底层技术原因是什么？
 3. 触发条件：在什么条件下会触发这个问题？
 
-要求：
-- 必须用中文回答
-- 每个层面用 1-2 句话简洁回答
-- 直接输出分析结果，不要输出思考过程
-- 不要使用 <think> 标签
+{self.build_chinese_requirements()}
 - 不要输出 JSON 格式
 - 按照以下格式回答：
 
@@ -113,26 +86,15 @@ Issue: [{jira_data['key']}] {jira_data['title']}
         Returns:
             解析后的结果字典
         """
-        import re
+        # 使用基类的键值对提取方法
+        fields = self.extract_key_value_pairs(response, ['直接原因', '深层原因', '触发条件'])
 
         result = {
-            'direct_cause': '',
-            'deep_cause': '',
-            'trigger_condition': '',
+            'direct_cause': fields.get('直接原因', ''),
+            'deep_cause': fields.get('深层原因', ''),
+            'trigger_condition': fields.get('触发条件', ''),
             'raw_response': response
         }
-
-        # 尝试提取结构化信息
-        direct_match = re.search(r'直接原因[：:]\s*(.+?)(?=\n|深层原因|触发条件|$)', response, re.DOTALL)
-        deep_match = re.search(r'深层原因[：:]\s*(.+?)(?=\n|触发条件|$)', response, re.DOTALL)
-        trigger_match = re.search(r'触发条件[：:]\s*(.+?)(?=\n|$)', response, re.DOTALL)
-
-        if direct_match:
-            result['direct_cause'] = direct_match.group(1).strip()
-        if deep_match:
-            result['deep_cause'] = deep_match.group(1).strip()
-        if trigger_match:
-            result['trigger_condition'] = trigger_match.group(1).strip()
 
         # 如果没有提取到结构化信息，使用原始响应
         if not any([result['direct_cause'], result['deep_cause'], result['trigger_condition']]):

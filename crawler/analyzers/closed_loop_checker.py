@@ -3,25 +3,13 @@
 """
 
 from typing import Dict, Any, Optional
-from crawler.analyzers.base import BaseAnalyzer
+from crawler.analyzers.configurable_base import ConfigurableAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
-from crawler.llm_utils import clean_llm_output
 
 
-class ClosedLoopChecker(BaseAnalyzer):
+class ClosedLoopChecker(ConfigurableAnalyzer):
     """闭环检查器 - 检查根因识别、修复方案和验证测试"""
-
-    def __init__(self, llm_client: BaseLLMClient, config: Optional[Dict[str, Any]] = None):
-        """
-        初始化闭环检查器
-
-        Args:
-            llm_client: LLM 客户端
-            config: 配置字典
-        """
-        self.llm_client = llm_client
-        self.config = config or {}
 
     def get_name(self) -> str:
         return "closed_loop"
@@ -37,33 +25,24 @@ class ClosedLoopChecker(BaseAnalyzer):
         Returns:
             包含闭环检查结果的字典
         """
-        import sys
-
         # 1. 基础检查（基于状态）
-        print("   [closed_loop] 检查状态...", flush=True)
+        self.log_progress("检查状态...")
         status = jira_data.get('status', '').lower()
         is_closed_by_status = status in ['完成', 'done', '已解决', 'resolved', 'closed']
 
         # 2. 内容检查（使用 LLM）
-        print("   [closed_loop] 构建提示词...", flush=True)
+        self.log_progress("构建提示词...")
         prompt = self._build_prompt(jira_data, context)
-        print("   [closed_loop] 调用 LLM...", flush=True)
-        context.increment_llm_calls()
-        max_tokens = self.config.get('max_tokens', 3000)
-        response = self.llm_client.generate(prompt, max_tokens=max_tokens)
-        print("   [closed_loop] LLM 响应完成", flush=True)
 
-        # 清理输出
-        print("   [closed_loop] 清理输出...", flush=True)
-        response = clean_llm_output(response)
+        self.log_progress("调用 LLM...")
+        response = self.call_llm(prompt, context, default_max_tokens=3000)
 
-        # 3. 解析响应
-        print("   [closed_loop] 解析响应...", flush=True)
+        self.log_progress("解析响应...")
         result = self._parse_response(response)
         result['is_closed_by_status'] = is_closed_by_status
 
-        # 4. 综合判断
-        print("   [closed_loop] 综合判断...", flush=True)
+        # 3. 综合判断
+        self.log_progress("综合判断...")
         result['is_closed'] = (
             is_closed_by_status and
             result.get('has_root_cause', False) and
@@ -71,7 +50,7 @@ class ClosedLoopChecker(BaseAnalyzer):
             result.get('has_verification', False)
         )
 
-        print("   [closed_loop] 分析完成", flush=True)
+        self.log_progress("分析完成")
         return result
 
     def _build_prompt(self, jira_data: Dict[str, Any], context: AnalysisContext) -> str:
@@ -85,11 +64,8 @@ class ClosedLoopChecker(BaseAnalyzer):
         Returns:
             提示词字符串
         """
-        # 获取根因分析结果
-        root_cause = context.get_result('root_cause')
-        root_cause_summary = ""
-        if root_cause:
-            root_cause_summary = f"\n已识别的根因:\n{root_cause.get('direct_cause', 'N/A')}\n"
+        # 使用基类的根因上下文格式化
+        root_cause_summary = self.format_root_cause_context(context)
 
         # 获取评论内容
         comments_text = ""
@@ -113,10 +89,7 @@ Issue: [{jira_data['key']}] {jira_data['title']}
 2. 修复方案：是否提出并实施了修复方案？
 3. 验证测试：是否进行了验证测试并通过？
 
-要求：
-- 必须用中文回答
-- 直接输出分析结果，不要输出思考过程
-- 不要使用 <think> 标签
+{self.build_chinese_requirements()}
 - 按照以下格式回答：
 
 - 根因识别：是/否，说明
