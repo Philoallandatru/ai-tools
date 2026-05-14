@@ -266,7 +266,9 @@ class SyncService:
 
     @staticmethod
     def _merge_result(target: Dict[str, Any], source: Dict[str, Any], source_type: str) -> None:
-        target["stats"][source_type].update(source["stats"][source_type])
+        # Accumulate stats instead of replacing them
+        for key, value in source["stats"][source_type].items():
+            target["stats"][source_type][key] += value
         target["results"][source_type].extend(source["results"])
         for error in source["errors"]:
             error["type"] = source_type

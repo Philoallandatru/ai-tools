@@ -121,7 +121,7 @@ class TestSyncService:
         assert stats["jira"]["attachments"] == 0
 
     def test_merge_result(self):
-        """Test _merge_result merges stats correctly."""
+        """Test _merge_result accumulates stats correctly."""
         target = {
             "stats": {
                 "confluence": {"pages": 10, "attachments": 5, "skipped": 2, "total": 12},
@@ -141,11 +141,11 @@ class TestSyncService:
 
         SyncService._merge_result(target, source, "confluence")
 
-        # _merge_result uses update() which replaces values, not adds them
-        assert target["stats"]["confluence"]["pages"] == 5
-        assert target["stats"]["confluence"]["attachments"] == 3
-        assert target["stats"]["confluence"]["skipped"] == 1
-        assert target["stats"]["confluence"]["total"] == 6
+        # _merge_result should accumulate values, not replace them
+        assert target["stats"]["confluence"]["pages"] == 15  # 10 + 5
+        assert target["stats"]["confluence"]["attachments"] == 8  # 5 + 3
+        assert target["stats"]["confluence"]["skipped"] == 3  # 2 + 1
+        assert target["stats"]["confluence"]["total"] == 18  # 12 + 6
         assert len(target["results"]["confluence"]) == 1
         assert len(target["errors"]) == 1
         assert target["errors"][0]["type"] == "confluence"
