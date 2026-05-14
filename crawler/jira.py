@@ -405,7 +405,7 @@ class JiraCrawler:
 
     def _download_attachments(self, issue: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        下载 issue 的所有附件
+        下载 issue 的所有附件（仅图片和 Office 文件）
 
         Args:
             issue: Issue 数据
@@ -413,13 +413,28 @@ class JiraCrawler:
         Returns:
             附件列表
         """
+        # 允许的文件扩展名
+        allowed_extensions = {
+            # 图片格式
+            '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico',
+            # Office 文档
+            '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+            # PDF
+            '.pdf'
+        }
+
         attachments = []
         att_list = issue['fields'].get('attachment', [])
 
         for att in att_list:
-            att_data = self._download_single_attachment(att)
-            if att_data:
-                attachments.append(att_data)
+            filename = att.get('filename', '').lower()
+            # 检查文件扩展名
+            if any(filename.endswith(ext) for ext in allowed_extensions):
+                att_data = self._download_single_attachment(att)
+                if att_data:
+                    attachments.append(att_data)
+            else:
+                print(f"[Jira] 跳过非图片/Office文件: {att.get('filename')}")
 
         return attachments
 
