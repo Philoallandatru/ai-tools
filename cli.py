@@ -139,7 +139,7 @@ def sync(config, source, type):
     """
     output = CLIOutput()
     cfg = ConfigManager(config).load_validated()
-    result = SyncService(cfg).sync_all(source_name=source, source_type=type)
+    result = SyncService(cfg.model_dump()).sync_all(source_name=source, source_type=type)
 
     sources_to_sync = result["sources"]
     stats = result["stats"]
