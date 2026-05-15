@@ -484,19 +484,19 @@ class JiraCrawler:
             # 方法 3: 使用 requests 直接下载（最后的降级方案）
             try:
                 import requests
-                # 获取认证信息
-                auth = None
-                if hasattr(self.client, 'username') and hasattr(self.client, 'password'):
-                    auth = (self.client.username, self.client.password)
-                elif hasattr(self.client, 'token'):
+
+                # 根据认证方式选择请求方法
+                if hasattr(self.client, 'token'):
                     # Server 版本使用 token
                     headers = {'Authorization': f'Bearer {self.client.token}'}
                     response = requests.get(content_url, headers=headers, timeout=30)
+                elif hasattr(self.client, 'username') and hasattr(self.client, 'password'):
+                    # Cloud 版本使用 basic auth
+                    auth = (self.client.username, self.client.password)
+                    response = requests.get(content_url, auth=auth, timeout=30)
                 else:
-                    response = requests.get(content_url, auth=auth, timeout=30)
-
-                if not hasattr(self.client, 'token'):
-                    response = requests.get(content_url, auth=auth, timeout=30)
+                    # 无认证信息，尝试直接访问
+                    response = requests.get(content_url, timeout=30)
 
                 response.raise_for_status()
                 content = response.content
