@@ -1,6 +1,6 @@
 # AI Tools - Atlassian Knowledge Management System
 
-一个集成了 Atlassian 数据爬取和智能知识库编译的工具集。
+一个集成了 Atlassian 数据爬取和智能知识库编译的工具集，支持多 Wiki 仓库架构。
 
 ## 功能特性
 
@@ -21,14 +21,22 @@
 - ✅ **元数据保留**: 自动添加源文件和章节信息
 - ✅ **预览模式**: dry-run 模式预览拆分结果
 
-### 3. 智能知识库编译 (llm-wiki-compiler)
+### 3. 多 Wiki 仓库架构 (NEW!)
+- ✅ **多项目隔离**: 为不同项目维护独立的知识库
+- ✅ **批量编译**: 分批编译（每批 5 个文件），失败时保留进度
+- ✅ **智能知识检索**: 三种模式（指定 wiki、自动匹配、搜索所有）
+- ✅ **自动匹配**: 根据 Jira 项目键、关键词自动选择 wiki
+- ✅ **断点续传**: 编译失败后支持从上次位置继续
+- ✅ **集成工作流**: 一条命令完成文件移动和批量编译
+
+### 4. 智能知识库编译 (llm-wiki-compiler)
 - ✅ **概念提取**: 使用 LLM 从文档中自动提取技术概念
-- ✅ **知识图谱**: 生成互联的概念网络（341 个概念）
+- ✅ **知识图谱**: 生成互联的概念网络
 - ✅ **中文支持**: 完整支持中文内容处理
 - ✅ **智能查询**: 基于 AI 的知识问答系统
 - ✅ **实时监控**: 自动监控源文件变化并重新编译
 
-### 4. Jira 深度分析
+### 5. Jira 深度分析
 - ✅ **相关知识检索**: 从 Wiki 和源文件中检索相关技术知识
 - ✅ **根因分析**: 使用 LLM 分析问题的直接原因、深层原因和触发条件
 - ✅ **类似问题查找**: 基于关键词和根因匹配相似的 Jira Issues
@@ -37,7 +45,7 @@
 - ✅ **行动建议**: 生成短期、中期、长期的行动建议
 - ✅ **Markdown 报告**: 自动生成结构化的分析报告
 
-### 5. 文档分析 (NEW!)
+### 6. 文档分析
 - ✅ **智能切分**: 按 Markdown 标题层级自动切分文档
 - ✅ **关键词提取**: 自动提取技术术语、标识符和中文词汇
 - ✅ **上下文检索**: 从代码库和需求文档中检索相关内容
@@ -78,7 +86,26 @@ cp .env.example .env
 # 1. 爬取 Atlassian 数据
 uv run python cli.py sync
 
-# 2. 全文搜索（快速查找内容）
+# 2. 多 Wiki 管理（NEW!）
+# 初始化新 wiki
+uv run python cli.py wiki-init project-a \
+  --display-name "Project Alpha" \
+  --jira-projects "KAN,NVME" \
+  --keywords "nvme,firmware,ssd"
+
+# 列出所有 wiki
+uv run python cli.py wiki-list
+
+# 编译 wiki（批量编译，支持断点续传）
+uv run python cli.py compile-wiki --wiki-name project-a --files sources/KAN-*.md
+
+# 续传失败的编译
+uv run python cli.py compile-wiki --wiki-name project-a --resume
+
+# 迁移现有 wiki/ 到多 wiki 架构
+uv run python cli.py migrate-wiki
+
+# 3. 全文搜索（快速查找内容）
 # 基本搜索
 uv run python cli.py search "NVMe Reset"
 
@@ -106,14 +133,20 @@ uv run python cli.py list-jira --status "进行中"
 # 按优先级过滤
 uv run python cli.py list-jira --priority Highest
 
-# 3. Jira 深度分析
+# 4. Jira 深度分析（支持多 wiki）
+# 自动匹配 wiki（根据 Jira 项目键）
+uv run python cli.py analyze-jira KAN-2
+
+# 指定特定 wiki
+uv run python cli.py analyze-jira KAN-2 --wiki-name project-a
+
+# 搜索所有 wiki
+uv run python cli.py analyze-jira KAN-2 --wiki-mode search_all
+
 # 使用 Mock LLM 分析（测试模式）
 uv run python cli.py analyze-jira KAN-2 --llm-provider mock
 
-# 使用真实 LLM 分析（默认从配置读取，使用 OpenAI-compatible API）
-uv run python cli.py analyze-jira KAN-2
-
-# 4. 文档分析（NEW!）
+# 5. 文档分析
 # 分析文档并生成需求/测试用例建议报告
 uv run python cli.py analyze-doc sources/KAN-1.md
 
@@ -126,7 +159,7 @@ uv run python cli.py analyze-doc sources/spec.md --dry-run
 # 指定输出路径
 uv run python cli.py analyze-doc sources/doc.md --output reports/my_analysis.md
 
-# 5. 自动报告生成
+# 6. 自动报告生成
 # 生成本周周报
 uv run python cli.py generate-report --report-type weekly
 
@@ -139,7 +172,7 @@ uv run python cli.py generate-report --report-type weekly --start-date 2026-05-0
 # 输出为 JSON 格式
 uv run python cli.py generate-report --report-type weekly --output-format json
 
-# 5. 筛选导出文档（可选）
+# 7. 筛选导出文档（可选）
 # 导出今天更新的进行中的 Jira issues
 uv run python cli.py export-filtered --today --status "进行中"
 
@@ -149,19 +182,12 @@ uv run python cli.py export-filtered --days 7 --status "待办" --status "进行
 # 导出昨天更新的所有 Confluence 页面
 uv run python cli.py export-filtered --type confluence --yesterday
 
-# 6. 拆分长文档（可选）
+# 8. 拆分长文档（可选）
 uv run python cli.py split-doc test-sources/nvme.md --split-level 2 --max-chars 15000
 
-# 7. 编译知识库
-uv run python cli.py compile-wiki
-
-# 8. 查询知识库
+# 9. Wiki 查询和监控
 uv run python cli.py query-wiki "什么是 NVMe 重置机制？"
-
-# 9. 查看 wiki 状态
 uv run python cli.py wiki-status
-
-# 10. 监控模式（自动重新编译）
 uv run python cli.py watch-wiki
 ```
 
@@ -235,6 +261,7 @@ ai-tools/
 - [文档拆分](docs/DOC_SPLITTING.md) - 长文档拆分工具使用指南
 - [定时任务](docs/SCHEDULER.md) - 配置自动同步
 - [Wiki 集成](docs/WIKI_INTEGRATION.md) - Wiki 编译器集成指南
+- [多 Wiki 仓库](docs/MULTI_WIKI_GUIDE.md) - 多 Wiki 架构完整指南 (NEW!)
 - [Wiki 完成总结](docs/WIKI_SETUP_COMPLETE.md) - Wiki 集成成果
 
 ## 常见问题

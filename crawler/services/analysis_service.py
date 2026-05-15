@@ -11,6 +11,7 @@ from crawler.analyzers.comment_analyzer import CommentAnalyzer
 from crawler.analyzers.custom_analyzer import CustomAnalyzer
 from crawler.analyzers.issue_summary_analyzer import IssueSummaryAnalyzer
 from crawler.analyzers.knowledge_retriever import KnowledgeRetriever
+from crawler.analyzers.multi_wiki_knowledge_retriever import MultiWikiKnowledgeRetriever
 from crawler.analyzers.root_cause_analyzer import RootCauseAnalyzer
 from crawler.analyzers.similar_jira_finder import SimilarJiraFinder
 from crawler.config import ConfigManager
@@ -50,6 +51,8 @@ class AnalysisService:
         output_dir: str = "./reports",
         llm_provider: Optional[str] = None,
         allow_mock_fallback: bool = True,
+        wiki_mode: str = "auto_match",
+        wiki_name: Optional[str] = None,
     ) -> JiraAnalysisResult:
         """Run Jira deep analysis and persist the markdown report."""
         llm_client, llm_info = self.create_llm_client(
@@ -57,7 +60,9 @@ class AnalysisService:
             allow_mock_fallback=allow_mock_fallback,
             connection_test=True,
         )
-        analyzer = self.create_jira_analyzer(source_dir, wiki_dir, llm_client)
+        analyzer = self.create_jira_analyzer(
+            source_dir, wiki_dir, llm_client, wiki_mode, wiki_name
+        )
         report = analyzer.analyze(issue_key)
 
         output_path = Path(output_dir)
@@ -112,20 +117,55 @@ class AnalysisService:
         source_dir: str,
         wiki_dir: str,
         llm_client: BaseLLMClient,
+        wiki_mode: str = "auto_match",
+        wiki_name: Optional[str] = None,
     ) -> JiraDeepAnalyzer:
         """Create and register the standard Jira analysis pipeline."""
         analyzer = JiraDeepAnalyzer(source_dir=source_dir, llm_client=llm_client)
 
         jira_analysis_config = self.config.get("jira_analysis", {})
 
-        analyzer.register_analyzer(
-            KnowledgeRetriever(
+        # 检查是否配置了多 wiki
+        wikis_config = self.config.get("wikis", {})
+        has_multi_wiki = bool(wikis_config.get("repositories", []))
+
+        if has_multi_wiki:
+            # 使用多 Wiki 知识检索器
+            retriever = MultiWikiKnowledgeRetriever(
+                wikis_root="./wikis",
                 source_dir=source_dir,
-                wiki_dir=wiki_dir,
                 llm_client=llm_client,
                 config=self.config,
             )
-        )
+            # 包装成适配器，使其兼容原有接口
+            from crawler.analyzers.base import BaseAnalyzer
+            from crawler.analysis_context import AnalysisContext
+            from typing import Dict, Any
+
+            class MultiWikiAdapter(BaseAnalyzer):
+                """适配器：将 MultiWikiKnowledgeRetriever 适配到 BaseAnalyzer 接口"""
+                def __init__(self, retriever, mode, name):
+                    self.retriever = retriever
+                    self.mode = mode
+                    self.wiki_name = name
+
+                def get_name(self) -> str:
+                    return "knowledge"
+
+                def analyze(self, jira_data: Dict[str, Any], context: AnalysisContext) -> Dict[str, Any]:
+                    return self.retriever.analyze(jira_data, context, mode=self.mode, wiki_name=self.wiki_name)
+
+            analyzer.register_analyzer(MultiWikiAdapter(retriever, wiki_mode, wiki_name))
+        else:
+            # 使用单 Wiki 知识检索器（向后兼容）
+            analyzer.register_analyzer(
+                KnowledgeRetriever(
+                    source_dir=source_dir,
+                    wiki_dir=wiki_dir,
+                    llm_client=llm_client,
+                    config=self.config,
+                )
+            )
 
         root_cause_config = jira_analysis_config.get("root_cause", {})
         analyzer.register_analyzer(RootCauseAnalyzer(llm_client, config=root_cause_config))

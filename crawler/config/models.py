@@ -309,6 +309,49 @@ class ObservabilityConfig(BaseModel):
     tracing: TracingConfig = Field(default_factory=TracingConfig)
 
 
+class WikiAutoMatchConfig(BaseModel):
+    """Wiki auto-match rules configuration."""
+
+    jira_projects: List[str] = Field(default_factory=list, description="Jira project keys to match")
+    confluence_spaces: List[str] = Field(default_factory=list, description="Confluence space keys to match")
+    keywords: List[str] = Field(default_factory=list, description="Keywords to match in title/description")
+
+
+class WikiCompilationConfig(BaseModel):
+    """Wiki compilation settings."""
+
+    batch_size: int = Field(default=5, ge=1, le=20, description="Files per batch")
+    auto_compile: bool = Field(default=True, description="Auto-compile on file changes")
+    compile_timeout: int = Field(default=300, ge=60, description="Compilation timeout in seconds")
+    stop_on_failure: bool = Field(default=True, description="Stop on first batch failure")
+
+
+class WikiRepositoryConfig(BaseModel):
+    """Individual wiki repository configuration."""
+
+    name: str = Field(..., description="Wiki name (unique identifier)")
+    display_name: str = Field(..., description="Human-readable display name")
+    description: str = Field(default="", description="Wiki description")
+    path: str = Field(..., description="Wiki directory path")
+    auto_match: WikiAutoMatchConfig = Field(default_factory=WikiAutoMatchConfig, description="Auto-match rules")
+    compilation: WikiCompilationConfig = Field(default_factory=WikiCompilationConfig, description="Compilation settings")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        """Validate wiki name format."""
+        if not v or not v.replace("-", "").replace("_", "").isalnum():
+            raise ValueError("Wiki name must be alphanumeric with optional hyphens/underscores")
+        return v
+
+
+class WikisConfig(BaseModel):
+    """Multi-wiki configuration."""
+
+    default_wiki: str = Field(default="default", description="Default wiki name")
+    repositories: List[WikiRepositoryConfig] = Field(default_factory=list, description="Wiki repositories")
+
+
 class AppConfig(BaseModel):
     """Root application configuration."""
 
@@ -331,3 +374,4 @@ class AppConfig(BaseModel):
     custom_analyzers: List[CustomAnalyzerConfig] = Field(default_factory=list)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
+    wikis: WikisConfig = Field(default_factory=WikisConfig, description="Multi-wiki configuration")

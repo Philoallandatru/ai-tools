@@ -226,13 +226,104 @@ def status(config):
 
 
 @cli.command()
+@click.option('--wiki-name', help='Wiki 名称')
+@click.option('--files', multiple=True, help='要编译的文件（支持 glob）')
+@click.option('--batch-size', default=5, help='每批文件数量')
+@click.option('--resume', is_flag=True, help='从上次失败处继续')
+@click.option('--all-wikis', is_flag=True, help='编译所有 wiki')
+@click.option('--config', default='config.yaml', help='配置文件路径')
+@require_config
 @handle_cli_errors
-def compile_wiki():
-    """编译 wiki 知识库"""
+def compile_wiki(wiki_name, files, batch_size, resume, all_wikis, config):
+    """编译 wiki 知识库（支持批量编译和多 wiki）"""
+    from crawler.config.config_manager import ConfigManager
+    from crawler.wiki_manager import WikiManager
+    from crawler.wiki_batch_compiler import WikiBatchCompiler, BatchCompilationConfig
+    import glob
+    import shutil
+
     output = CLIOutput()
-    output.info("正在编译 wiki...")
-    subprocess.run(['python', '-m', 'crawler.wiki_compiler'], check=True)
-    output.success("Wiki 编译完成!")
+    cfg = ConfigManager(config).load()
+
+    # 获取要编译的 wiki 列表
+    wikis_config = cfg.get('wikis', {})
+    repositories = wikis_config.get('repositories', [])
+
+    if not repositories:
+        output.error("未配置任何 wiki，请在 config.yaml 中添加 wikis 配置")
+        return
+
+    wikis_to_compile = []
+
+    if all_wikis:
+        wikis_to_compile = repositories
+    elif wiki_name:
+        wiki_config = next((w for w in repositories if w['name'] == wiki_name), None)
+        if not wiki_config:
+            output.error(f"Wiki 不存在: {wiki_name}")
+            return
+        wikis_to_compile = [wiki_config]
+    else:
+        # 使用默认 wiki
+        default_name = wikis_config.get('default_wiki', 'default')
+        wiki_config = next((w for w in repositories if w['name'] == default_name), None)
+        if wiki_config:
+            wikis_to_compile = [wiki_config]
+        else:
+            output.error(f"默认 wiki 不存在: {default_name}")
+            return
+
+    # 编译每个 wiki
+    for wiki_config in wikis_to_compile:
+        output.header(f"编译 wiki: {wiki_config['display_name']}")
+
+        wiki_path = Path(wiki_config['path'])
+        temp_dir = wiki_path / 'temp'
+
+        # 如果指定了文件，先复制到 temp/
+        if files and not resume:
+            output.info(f"复制 {len(files)} 个文件到 temp/")
+            temp_dir.mkdir(parents=True, exist_ok=True)
+
+            for file_pattern in files:
+                # 支持 glob 模式
+                matched_files = glob.glob(file_pattern)
+                for file_path in matched_files:
+                    src = Path(file_path)
+                    dst = temp_dir / src.name
+                    shutil.copy2(src, dst)
+                    output.info(f"  复制: {src.name}")
+
+        # 检查 temp/ 是否有文件
+        if not temp_dir.exists() or not list(temp_dir.glob("**/*.md")):
+            output.warning(f"temp/ 目录为空，跳过编译")
+            continue
+
+        # 创建批量编译器
+        compilation_config = wiki_config.get('compilation', {})
+        compiler = WikiBatchCompiler(
+            wiki_path=wiki_path,
+            config=BatchCompilationConfig(
+                batch_size=batch_size or compilation_config.get('batch_size', 5),
+                compile_timeout=compilation_config.get('compile_timeout', 300),
+                stop_on_failure=compilation_config.get('stop_on_failure', True)
+            )
+        )
+
+        # 开始编译
+        result = compiler.start_batch_compilation(resume=resume)
+
+        if result['status'] == 'no_files':
+            output.warning(result['message'])
+        elif result['status'] == 'success':
+            output.success(f"编译完成: {result['completed_batches']} 个批次")
+        elif result['status'] == 'partial':
+            output.warning(f"部分成功: {result['completed_batches']}/{result['total_batches']} 个批次")
+            for batch in result['batches']:
+                if batch['status'] == 'failed':
+                    output.error(f"批次 {batch['batch']} 失败: {batch['error']}")
+        else:
+            output.error(f"编译失败: {result.get('message', 'Unknown error')}")
 
 
 @cli.command()
@@ -282,6 +373,268 @@ def watch_wiki(time):
     output = CLIOutput()
     output.info(f"监控 wiki 变化 ({time} 秒)...")
     subprocess.run(['python', '-m', 'crawler.wiki_watcher', '--time', str(time)], check=True)
+
+
+@cli.command()
+@click.option('--target-wiki', default='default', help='目标 wiki 名称')
+@click.option('--dry-run', is_flag=True, help='预览迁移（不实际执行）')
+@click.option('--config', default='config.yaml', help='配置文件路径')
+@require_config
+@handle_cli_errors
+def migrate_wiki(target_wiki, dry_run, config):
+    """迁移现有 wiki/ 目录到多 wiki 架构"""
+    from crawler.config.config_manager import ConfigManager
+    from crawler.wiki_manager import WikiManager, WikiMetadata
+    from crawler.config.models import WikiRepositoryConfig, WikiAutoMatchConfig, WikiCompilationConfig
+    import shutil
+    import yaml
+
+    output = CLIOutput()
+    cfg = ConfigManager(config).load()
+
+    old_wiki_dir = Path('./wiki')
+    if not old_wiki_dir.exists():
+        output.error("旧的 wiki/ 目录不存在")
+        return
+
+    new_wiki_path = Path(f'./wikis/{target_wiki}')
+
+    output.header(f"迁移 wiki/ → wikis/{target_wiki}/")
+
+    if dry_run:
+        output.info("[预览模式] 将执行以下操作:")
+        output.info(f"  1. 创建目录: {new_wiki_path}")
+        output.info(f"  2. 移动 wiki/ → {new_wiki_path}/wiki/")
+        output.info(f"  3. 创建 .wiki-metadata.json")
+        output.info(f"  4. 更新 config.yaml")
+        return
+
+    # 1. 创建新的 wiki 目录结构
+    output.info("创建目录结构...")
+    (new_wiki_path / 'temp').mkdir(parents=True, exist_ok=True)
+    (new_wiki_path / 'sources').mkdir(parents=True, exist_ok=True)
+    (new_wiki_path / '.llmwiki').mkdir(parents=True, exist_ok=True)
+
+    # 2. 移动旧的 wiki/ 目录
+    output.info(f"移动 wiki/ → {new_wiki_path}/wiki/")
+    if (new_wiki_path / 'wiki').exists():
+        output.warning(f"{new_wiki_path}/wiki/ 已存在，将被覆盖")
+        shutil.rmtree(new_wiki_path / 'wiki')
+    shutil.move(str(old_wiki_dir), str(new_wiki_path / 'wiki'))
+
+    # 3. 创建元数据
+    output.info("创建 .wiki-metadata.json")
+    metadata_manager = WikiMetadata(new_wiki_path)
+    metadata_manager.create(
+        name=target_wiki,
+        display_name=f"{target_wiki.title()} Wiki",
+        description="Migrated from legacy wiki/",
+        auto_match={
+            'jira_projects': [],
+            'confluence_spaces': [],
+            'keywords': []
+        },
+        compilation={
+            'batch_size': 5,
+            'auto_compile': True
+        }
+    )
+
+    # 4. 更新 config.yaml
+    output.info("更新 config.yaml")
+    config_path = Path(config)
+
+    # 读取现有配置
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config_data = yaml.safe_load(f)
+
+    # 添加 wikis 配置（如果不存在）
+    if 'wikis' not in config_data:
+        config_data['wikis'] = {
+            'default_wiki': target_wiki,
+            'repositories': []
+        }
+
+    # 添加迁移的 wiki
+    wiki_config = {
+        'name': target_wiki,
+        'display_name': f"{target_wiki.title()} Wiki",
+        'description': "Migrated from legacy wiki/",
+        'path': f"./wikis/{target_wiki}",
+        'auto_match': {
+            'jira_projects': [],
+            'confluence_spaces': [],
+            'keywords': []
+        },
+        'compilation': {
+            'batch_size': 5,
+            'auto_compile': True,
+            'compile_timeout': 300,
+            'stop_on_failure': True
+        }
+    }
+
+    # 检查是否已存在
+    existing = next((w for w in config_data['wikis']['repositories'] if w['name'] == target_wiki), None)
+    if not existing:
+        config_data['wikis']['repositories'].append(wiki_config)
+
+    # 保存配置
+    with open(config_path, 'w', encoding='utf-8') as f:
+        yaml.dump(config_data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    output.success(f"迁移完成！")
+    output.info(f"旧的 wiki/ 已移动到 wikis/{target_wiki}/wiki/")
+    output.info(f"配置已更新到 {config}")
+    output.info(f"\n使用以下命令编译:")
+    output.info(f"  uv run python cli.py compile-wiki --wiki-name {target_wiki}")
+
+
+@cli.command()
+@click.option('--config', default='config.yaml', help='配置文件路径')
+@require_config
+@handle_cli_errors
+def wiki_list(config):
+    """列出所有配置的 wiki"""
+    from crawler.config.config_manager import ConfigManager
+    from crawler.wiki_manager import WikiManager
+
+    output = CLIOutput()
+    cfg = ConfigManager(config).load()
+
+    wikis_config = cfg.get('wikis', {})
+    repositories = wikis_config.get('repositories', [])
+    default_wiki = wikis_config.get('default_wiki', 'default')
+
+    if not repositories:
+        output.warning("未配置任何 wiki")
+        return
+
+    output.header(f"配置的 Wiki ({len(repositories)} 个)")
+    output.info(f"默认 wiki: {default_wiki}\n")
+
+    for wiki in repositories:
+        is_default = " [默认]" if wiki['name'] == default_wiki else ""
+        output.subheader(f"{wiki['display_name']}{is_default}")
+        output.key_value("名称", wiki['name'])
+        output.key_value("路径", wiki['path'])
+        output.key_value("描述", wiki.get('description', 'N/A'))
+
+        # 检查是否存在
+        wiki_path = Path(wiki['path'])
+        exists = wiki_path.exists()
+        output.key_value("状态", "已初始化" if exists else "未初始化")
+
+        if exists:
+            # 统计文件
+            temp_files = list((wiki_path / 'temp').glob("**/*.md")) if (wiki_path / 'temp').exists() else []
+            source_files = list((wiki_path / 'sources').glob("**/*.md")) if (wiki_path / 'sources').exists() else []
+            wiki_files = list((wiki_path / 'wiki' / 'concepts').glob("*.md")) if (wiki_path / 'wiki' / 'concepts').exists() else []
+
+            output.key_value("temp/ 文件", len(temp_files))
+            output.key_value("sources/ 文件", len(source_files))
+            output.key_value("wiki/concepts/ 文件", len(wiki_files))
+
+        # 自动匹配规则
+        auto_match = wiki.get('auto_match', {})
+        if auto_match.get('jira_projects'):
+            output.key_value("Jira 项目", ', '.join(auto_match['jira_projects']))
+        if auto_match.get('keywords'):
+            output.key_value("关键词", ', '.join(auto_match['keywords'][:3]) + ('...' if len(auto_match['keywords']) > 3 else ''))
+
+        output.info("")
+
+
+@cli.command()
+@click.argument('wiki_name')
+@click.option('--display-name', help='显示名称')
+@click.option('--description', default='', help='描述')
+@click.option('--jira-projects', help='Jira 项目（逗号分隔）')
+@click.option('--keywords', help='关键词（逗号分隔）')
+@click.option('--config', default='config.yaml', help='配置文件路径')
+@require_config
+@handle_cli_errors
+def wiki_init(wiki_name, display_name, description, jira_projects, keywords, config):
+    """初始化新的 wiki 仓库"""
+    from crawler.config.config_manager import ConfigManager
+    from crawler.wiki_manager import WikiManager
+    from crawler.config.models import WikiRepositoryConfig, WikiAutoMatchConfig, WikiCompilationConfig
+    import yaml
+
+    output = CLIOutput()
+    cfg = ConfigManager(config).load()
+
+    # 检查 wiki 是否已存在
+    wikis_config = cfg.get('wikis', {})
+    repositories = wikis_config.get('repositories', [])
+    existing = next((w for w in repositories if w['name'] == wiki_name), None)
+
+    if existing:
+        output.error(f"Wiki '{wiki_name}' 已存在")
+        return
+
+    # 创建 wiki 配置
+    wiki_config = WikiRepositoryConfig(
+        name=wiki_name,
+        display_name=display_name or f"{wiki_name.title()} Wiki",
+        description=description,
+        path=f"./wikis/{wiki_name}",
+        auto_match=WikiAutoMatchConfig(
+            jira_projects=jira_projects.split(',') if jira_projects else [],
+            confluence_spaces=[],
+            keywords=keywords.split(',') if keywords else []
+        ),
+        compilation=WikiCompilationConfig(
+            batch_size=5,
+            auto_compile=True,
+            compile_timeout=300,
+            stop_on_failure=True
+        )
+    )
+
+    # 初始化 wiki
+    output.info(f"初始化 wiki: {wiki_config.display_name}")
+    wiki_manager = WikiManager()
+    wiki_path = wiki_manager.initialize_wiki(wiki_config)
+
+    # 更新 config.yaml
+    output.info("更新 config.yaml")
+    config_path = Path(config)
+
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config_data = yaml.safe_load(f)
+
+    if 'wikis' not in config_data:
+        config_data['wikis'] = {
+            'default_wiki': wiki_name,
+            'repositories': []
+        }
+
+    config_data['wikis']['repositories'].append({
+        'name': wiki_config.name,
+        'display_name': wiki_config.display_name,
+        'description': wiki_config.description,
+        'path': wiki_config.path,
+        'auto_match': {
+            'jira_projects': wiki_config.auto_match.jira_projects,
+            'confluence_spaces': wiki_config.auto_match.confluence_spaces,
+            'keywords': wiki_config.auto_match.keywords
+        },
+        'compilation': {
+            'batch_size': wiki_config.compilation.batch_size,
+            'auto_compile': wiki_config.compilation.auto_compile,
+            'compile_timeout': wiki_config.compilation.compile_timeout,
+            'stop_on_failure': wiki_config.compilation.stop_on_failure
+        }
+    })
+
+    with open(config_path, 'w', encoding='utf-8') as f:
+        yaml.dump(config_data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    output.success(f"Wiki '{wiki_name}' 初始化完成！")
+    output.info(f"路径: {wiki_path}")
+    output.info(f"\n使用以下命令编译:")
+    output.info(f"  uv run python cli.py compile-wiki --wiki-name {wiki_name} --files sources/*.md")
 
 
 @cli.command()
@@ -529,21 +882,29 @@ def export_filtered(doc_type, statuses, today, yesterday, days, output, source_d
 @cli.command()
 @click.argument('issue_key')
 @click.option('--source-dir', default='./sources', help='源目录')
-@click.option('--wiki-dir', default='./wiki', help='Wiki 目录')
+@click.option('--wiki-name', help='指定 wiki 名称')
+@click.option('--wiki-mode', type=click.Choice(['specify', 'auto_match', 'search_all']),
+              default='auto_match', help='Wiki 选择模式')
 @click.option('--output-dir', default='./reports', help='输出目录')
 @click.option('--llm-provider', type=click.Choice(['openai', 'mock']), default='openai', help='LLM 提供商')
 @click.option('--config', default='config.yaml', help='配置文件路径')
 @require_config
 @handle_cli_errors
-def analyze_jira(issue_key, source_dir, wiki_dir, output_dir, llm_provider, config):
-    """分析 Jira issue"""
+def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_provider, config):
+    """分析 Jira issue（支持多 wiki）"""
     output_cli = CLIOutput()
     cfg = ConfigManager(config).load()  # 返回字典
+
+    # 如果指定了 wiki_name，强制使用 specify 模式
+    if wiki_name and wiki_mode != 'specify':
+        wiki_mode = 'specify'
 
     service = AnalysisService(config=cfg)
     report_path = service.analyze_jira(
         issue_key=issue_key,
-        output_dir=output_dir
+        output_dir=output_dir,
+        wiki_mode=wiki_mode,
+        wiki_name=wiki_name
     )
 
     output_cli.success(f"分析报告已生成: {report_path}")
