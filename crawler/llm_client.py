@@ -5,6 +5,7 @@ LLM 客户端模块 - 支持 Mock 和真实 LLM
 import requests
 from typing import Optional
 from abc import ABC, abstractmethod
+from .reasoning_filter import create_filter, ReasoningFilter
 
 
 class BaseLLMClient(ABC):
@@ -128,6 +129,8 @@ class OpenAIClient(BaseLLMClient):
         base_url: str = "http://127.0.0.1:1234/v1",
         model: str = "qwen3.5-4b",
         timeout: int = 120,
+        enable_reasoning_filter: bool = True,
+        reasoning_filter_strategy: str = "smart",
     ):
         """
         初始化 OpenAI-compatible 客户端
@@ -136,10 +139,14 @@ class OpenAIClient(BaseLLMClient):
             base_url: API 服务地址（应包含 API 版本路径，如 http://127.0.0.1:1234/v1）
             model: 模型名称
             timeout: 请求超时时间（秒）
+            enable_reasoning_filter: 是否启用推理过程过滤器
+            reasoning_filter_strategy: 过滤策略 ("smart", "aggressive", "conservative", "none")
         """
         self.base_url = base_url.rstrip('/')
         self.model = model
         self.timeout = timeout
+        self.enable_reasoning_filter = enable_reasoning_filter
+        self.reasoning_filter = create_filter(reasoning_filter_strategy) if enable_reasoning_filter else None
 
     def generate(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.7) -> str:
         """
@@ -229,15 +236,17 @@ class OpenAIClient(BaseLLMClient):
 
             # 优先使用 content（最终答案）
             if content:
+                # 应用推理过程过滤器
+                if self.reasoning_filter:
+                    content = self.reasoning_filter.filter(content)
                 return content
 
-            # 如果只有 reasoning_content，临时使用它但记录警告
-            # TODO: 在 LM Studio 中禁用推理模式是更好的解决方案
+            # 如果只有 reasoning_content，使用它并应用过滤器
             if reasoning_content:
-                print(f"[WARNING] 模型返回了 reasoning_content 但没有 content")
-                print(f"[WARNING] 这通常意味着模型处于推理模式")
-                print(f"[WARNING] 建议在 LM Studio 的模型设置中禁用推理模式")
-                print(f"[WARNING] 临时使用 reasoning_content 作为回退")
+                print(f"[INFO] 模型返回了 reasoning_content，应用过滤器处理")
+                # 应用推理过程过滤器
+                if self.reasoning_filter:
+                    reasoning_content = self.reasoning_filter.filter(reasoning_content)
                 return reasoning_content
 
             # 两者都为空
@@ -284,6 +293,10 @@ class OpenAIClient(BaseLLMClient):
                     text = result['choices'][0]['text']
                     if not text or len(text.strip()) == 0:
                         print(f"[DEBUG] Completions API 返回空内容，完整响应: {result}")
+
+                    # 应用推理过程过滤器
+                    if self.reasoning_filter and text:
+                        text = self.reasoning_filter.filter(text)
 
                     return text.strip()
                 except requests.RequestException as fallback_error:
@@ -346,6 +359,8 @@ class LLMClientFactory:
             base_url = config.get('base_url')
             model = config.get('model')
             timeout = config.get('timeout', 120)
+            enable_reasoning_filter = config.get('enable_reasoning_filter', True)
+            reasoning_filter_strategy = config.get('reasoning_filter_strategy', 'smart')
 
             if not base_url:
                 raise ValueError(f"{provider} provider requires 'base_url' in config")
@@ -355,7 +370,13 @@ class LLMClientFactory:
             if provider in {'llmstudio', 'lmstudio', 'llamacpp'} and not base_url.rstrip('/').endswith('/v1'):
                 base_url = f"{base_url.rstrip('/')}/v1"
 
-            return OpenAIClient(base_url=base_url, model=model, timeout=timeout)
+            return OpenAIClient(
+                base_url=base_url,
+                model=model,
+                timeout=timeout,
+                enable_reasoning_filter=enable_reasoning_filter,
+                reasoning_filter_strategy=reasoning_filter_strategy
+            )
 
         else:
             raise ValueError(f"不支持的 LLM 提供商: {provider}")
