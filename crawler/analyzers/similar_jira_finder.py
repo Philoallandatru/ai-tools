@@ -146,7 +146,7 @@ class SimilarJiraFinder(ConfigurableAnalyzer):
         context: AnalysisContext
     ) -> float:
         """
-        计算两个 Issues 的相似度
+        计算两个 Issues 的相似度（多维度评分）
 
         Args:
             current: 当前 Issue
@@ -158,7 +158,14 @@ class SimilarJiraFinder(ConfigurableAnalyzer):
         """
         score = 0.0
 
-        # 1. 关键词匹配 (权重 0.4)
+        # 1. 标题相似度 (权重 0.25)
+        title_score = self._calculate_text_similarity(
+            current.get('title', ''),
+            candidate.get('title', '')
+        )
+        score += 0.25 * title_score
+
+        # 2. 关键词匹配 (权重 0.25)
         knowledge = context.get_result('knowledge')
         if knowledge and knowledge.get('keywords'):
             keywords = set(k.lower() for k in knowledge['keywords'])
@@ -166,17 +173,25 @@ class SimilarJiraFinder(ConfigurableAnalyzer):
 
             matched_keywords = sum(1 for kw in keywords if kw.lower() in candidate_text)
             if keywords:
-                score += 0.4 * (matched_keywords / len(keywords))
+                keyword_score = matched_keywords / len(keywords)
+                score += 0.25 * keyword_score
 
-        # 2. 问题类型匹配 (权重 0.3)
-        if current.get('type') == candidate.get('type'):
-            score += 0.3
+        # 3. 描述相似度 (权重 0.20)
+        desc_score = self._calculate_text_similarity(
+            current.get('description', '')[:500],
+            candidate.get('description', '')[:500]
+        )
+        score += 0.20 * desc_score
 
-        # 3. 优先级匹配 (权重 0.1)
-        if current.get('priority') == candidate.get('priority'):
-            score += 0.1
+        # 4. 问题类型匹配 (权重 0.10)
+        if current.get('type') == candidate.get('type') and current.get('type'):
+            score += 0.10
 
-        # 4. 根因相似度 (权重 0.2)
+        # 5. 优先级匹配 (权重 0.05)
+        if current.get('priority') == candidate.get('priority') and current.get('priority'):
+            score += 0.05
+
+        # 6. 根因相似度 (权重 0.10)
         root_cause = context.get_result('root_cause')
         if root_cause and root_cause.get('direct_cause'):
             cause_keywords = set(re.findall(r'\b[A-Za-z]{3,}\b', root_cause['direct_cause'].lower()))
@@ -184,9 +199,82 @@ class SimilarJiraFinder(ConfigurableAnalyzer):
 
             matched_cause = sum(1 for kw in cause_keywords if kw in candidate_text)
             if cause_keywords:
-                score += 0.2 * (matched_cause / len(cause_keywords))
+                cause_score = matched_cause / len(cause_keywords)
+                score += 0.10 * cause_score
+
+        # 7. 组件/标签匹配 (权重 0.05)
+        component_score = self._calculate_component_similarity(current, candidate)
+        score += 0.05 * component_score
 
         return min(score, 1.0)  # 确保不超过 1.0
+
+    def _calculate_text_similarity(self, text1: str, text2: str) -> float:
+        """
+        计算两段文本的相似度（基于词汇重叠）
+
+        Args:
+            text1: 文本1
+            text2: 文本2
+
+        Returns:
+            相似度分数 (0-1)
+        """
+        if not text1 or not text2:
+            return 0.0
+
+        # 提取词汇（长度 >= 3 的单词）
+        words1 = set(re.findall(r'\b[A-Za-z]{3,}\b', text1.lower()))
+        words2 = set(re.findall(r'\b[A-Za-z]{3,}\b', text2.lower()))
+
+        if not words1 or not words2:
+            return 0.0
+
+        # 计算 Jaccard 相似度
+        intersection = len(words1 & words2)
+        union = len(words1 | words2)
+
+        if union == 0:
+            return 0.0
+
+        return intersection / union
+
+    def _calculate_component_similarity(self, current: Dict[str, Any], candidate: Dict[str, Any]) -> float:
+        """
+        计算组件/标签相似度
+
+        Args:
+            current: 当前 Issue
+            candidate: 候选 Issue
+
+        Returns:
+            相似度分数 (0-1)
+        """
+        score = 0.0
+        matches = 0
+        total = 0
+
+        # 检查组件匹配
+        current_components = set(current.get('components', []))
+        candidate_components = set(candidate.get('components', []))
+
+        if current_components and candidate_components:
+            total += 1
+            if current_components & candidate_components:  # 有交集
+                matches += 1
+
+        # 检查标签匹配
+        current_labels = set(current.get('labels', []))
+        candidate_labels = set(candidate.get('labels', []))
+
+        if current_labels and candidate_labels:
+            total += 1
+            if current_labels & candidate_labels:  # 有交集
+                matches += 1
+
+        if total > 0:
+            score = matches / total
+
+        return score
 
     def _build_relevance_prompt(
         self,
@@ -203,21 +291,19 @@ class SimilarJiraFinder(ConfigurableAnalyzer):
         Returns:
             prompt 字符串
         """
-        prompt = f"""请分析以下两个 Jira Issue 的相关性：
+        prompt = f"""分析两个Jira问题的相关性：
 
-当前问题:
-- [{current['key']}] {current['title']}
-- 描述: {current['description'][:300]}
+当前: [{current['key']}] {current['title']}
+描述: {current['description'][:100]}
 
-相似问题:
-- [{similar['key']}] {similar['title']}
-- 描述: {similar['description'][:300]}
+相似: [{similar['key']}] {similar['title']} (相似度{similar['similarity_score']:.0%})
+描述: {similar['description'][:100]}
 
-请从以下角度分析它们的相关性（用 2-3 句话）：
-1. 共同点：它们有什么相似之处？（技术领域、问题类型、触发条件等）
-2. 参考价值：这个相似问题能为当前问题提供什么参考？（解决思路、注意事项等）
+用2-3句话说明：
+1. 共同点（技术领域、问题类型、触发条件）
+2. 参考价值（解决思路、注意事项）
+3. 差异点（如果有）
 
 {self.build_chinese_requirements()}
-- 直接回答，不要使用 Markdown 格式
-"""
+直接回答，不要Markdown格式"""
         return prompt

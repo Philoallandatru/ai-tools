@@ -30,6 +30,13 @@ class CommentAnalyzer(ConfigurableAnalyzer):
         comments = jira_data.get('comments', [])
         self.log_progress(f"找到 {len(comments)} 条评论")
 
+        # 调试：打印前 3 条评论的预览
+        if comments:
+            print(f"[DEBUG] 评论预览:")
+            for i, comment in enumerate(comments[:3], 1):
+                preview = comment[:100].replace('\n', ' ')
+                print(f"  评论 #{i}: {preview}...")
+
         if not comments:
             return {
                 'has_comments': False,

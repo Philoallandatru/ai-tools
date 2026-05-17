@@ -50,16 +50,17 @@ class KnowledgeRetriever(BaseAnalyzer):
 
         # 性能配置
         self.max_description_length = knowledge_config.get('max_description_length', 500)
-        self.max_keywords = knowledge_config.get('max_keywords', 10)
-        self.keyword_extraction_max_tokens = knowledge_config.get('keyword_extraction_max_tokens', 200)
-        self.concept_analysis_max_tokens = knowledge_config.get('concept_analysis_max_tokens', 300)
+        self.max_keywords = knowledge_config.get('max_keywords', 15)  # 增加到 15
+        self.keyword_extraction_max_tokens = knowledge_config.get('keyword_extraction_max_tokens', 300)  # 增加到 300
+        self.concept_analysis_max_tokens = knowledge_config.get('concept_analysis_max_tokens', 500)  # 增加到 500
         self.wiki_query_timeout = knowledge_config.get('wiki_query_timeout', 30)
-        self.wiki_content_preview = knowledge_config.get('wiki_content_preview', 1000)
+        self.wiki_content_preview = knowledge_config.get('wiki_content_preview', 2000)  # 增加到 2000
         self.max_thread_workers = knowledge_config.get('max_thread_workers', 3)
         self.min_keyword_length = knowledge_config.get('min_keyword_length', 2)
         self.max_keyword_length = knowledge_config.get('max_keyword_length', 20)
-        self.max_search_keywords = knowledge_config.get('max_search_keywords', 5)
+        self.max_search_keywords = knowledge_config.get('max_search_keywords', 8)  # 增加到 8
         self.max_results_per_keyword = knowledge_config.get('max_results_per_keyword', 3)
+        self.min_relevance_score = knowledge_config.get('min_relevance_score', 3)  # 新增：最低相关性阈值
 
     def get_name(self) -> str:
         return "knowledge"
@@ -180,19 +181,21 @@ class KnowledgeRetriever(BaseAnalyzer):
         title = jira_data.get('title', '')
         description = jira_data.get('description', '')[:self.max_description_length]
 
-        prompt = f"""从以下 Jira Issue 中提取 5-10 个最重要的技术关键词，用于搜索相关文档。
+        prompt = f"""从以下 Jira Issue 中提取 10-15 个最重要的技术关键词，用于搜索相关文档。
 
 标题: {title}
 描述: {description}
 
 要求：
-1. 提取技术术语、产品名称、协议名称、组件名称等
-2. 优先提取专有名词和缩写（如 NVMe, SSD, PCIe）
-3. 忽略通用词汇（如 Test, Demo, Issue）
-4. 每个关键词 {self.min_keyword_length}-{self.max_keyword_length} 个字符
+1. 提取技术术语、产品名称、协议名称、组件名称、功能模块名等
+2. 优先提取专有名词和缩写（如 NVMe, SSD, PCIe, Firmware）
+3. 包含问题相关的技术领域词汇（如 Memory, Buffer, Download, Update）
+4. 包含同义词和相关术语（如 FFU/Firmware Update, CRC/Checksum）
+5. 忽略通用词汇（如 Test, Demo, Issue, Problem）
+6. 每个关键词 {self.min_keyword_length}-{self.max_keyword_length} 个字符
 
 请以 JSON 数组格式返回：
-["关键词1", "关键词2", "关键词3"]"""
+["关键词1", "关键词2", "关键词3", ...]"""
 
         try:
             print(f"   [knowledge] 使用 LLM 提取关键词...")
@@ -341,10 +344,15 @@ class KnowledgeRetriever(BaseAnalyzer):
                 exact_match = concepts_dir / f"{keyword_lower}.md"
                 if exact_match.exists() and exact_match not in matched_files:
                     with open(exact_match, 'r', encoding='utf-8') as f:
-                        content = f.read(1000)
+                        content = f.read(3000)  # 读取更多内容
+
+                    # 提取相关段落
+                    paragraphs = self._extract_relevant_paragraphs(content, keyword)
+
                     results.append({
                         'keyword': keyword,
-                        'content': content.strip()[:800],
+                        'content': paragraphs,
+                        'full_content': content.strip()[:2000],  # 保留完整内容预览
                         'source': 'filename_exact',
                         'file': exact_match.name
                     })
@@ -358,10 +366,15 @@ class KnowledgeRetriever(BaseAnalyzer):
 
                     if keyword_lower in md_file.stem.lower():
                         with open(md_file, 'r', encoding='utf-8') as f:
-                            content = f.read(1000)
+                            content = f.read(3000)
+
+                        # 提取相关段落
+                        paragraphs = self._extract_relevant_paragraphs(content, keyword)
+
                         results.append({
                             'keyword': keyword,
-                            'content': content.strip()[:800],
+                            'content': paragraphs,
+                            'full_content': content.strip()[:2000],
                             'source': 'filename_partial',
                             'file': md_file.name
                         })
@@ -376,12 +389,16 @@ class KnowledgeRetriever(BaseAnalyzer):
 
                         try:
                             with open(md_file, 'r', encoding='utf-8') as f:
-                                content = f.read(2000)
+                                content = f.read(3000)
 
                             if keyword_lower in content.lower():
+                                # 提取相关段落
+                                paragraphs = self._extract_relevant_paragraphs(content, keyword)
+
                                 results.append({
                                     'keyword': keyword,
-                                    'content': content.strip()[:800],
+                                    'content': paragraphs,
+                                    'full_content': content.strip()[:2000],
                                     'source': 'content_match',
                                     'file': md_file.name
                                 })
@@ -394,6 +411,63 @@ class KnowledgeRetriever(BaseAnalyzer):
                 continue
 
         return results
+
+    def _extract_relevant_paragraphs(self, content: str, keyword: str) -> str:
+        """
+        从文档内容中提取与关键词最相关的段落
+
+        Args:
+            content: 文档内容
+            keyword: 关键词
+
+        Returns:
+            相关段落文本
+        """
+        # 按段落分割（双换行）
+        paragraphs = re.split(r'\n\s*\n+', content)
+
+        keyword_lower = keyword.lower()
+        relevant_paragraphs = []
+
+        for para in paragraphs:
+            para = para.strip()
+            if not para or len(para) < 10:  # 忽略太短的段落
+                continue
+
+            # 计算关键词出现次数
+            keyword_count = para.lower().count(keyword_lower)
+
+            # 如果段落包含关键词，或者是标题/定义段落
+            is_header = para.startswith('#')
+            is_definition = '定义' in para or '概念' in para or '是指' in para or '是一种' in para
+
+            if keyword_count > 0 or is_header or is_definition:
+                # 计算相关性分数
+                score = keyword_count * 2  # 关键词出现次数权重
+                if is_header:
+                    score += 3  # 标题权重
+                if is_definition:
+                    score += 2  # 定义段落权重
+                if keyword_count > 0 and len(para) > 50:
+                    score += 1  # 有内容的相关段落额外加分
+
+                relevant_paragraphs.append({
+                    'text': para,
+                    'score': score
+                })
+
+        # 按相关性排序
+        relevant_paragraphs.sort(key=lambda x: x['score'], reverse=True)
+
+        # 返回前 5 个最相关的段落
+        result_parts = [p['text'] for p in relevant_paragraphs[:5]]
+        result = '\n\n'.join(result_parts)
+
+        # 如果没有找到相关段落，返回前 1500 字符
+        if not result or len(result) < 100:
+            result = content[:1500]
+
+        return result[:1500]  # 限制总长度
 
     def _analyze_single_concept(self, jira_data: Dict[str, Any], concept: Dict[str, str], index: int, total: int, context: AnalysisContext) -> Dict[str, str]:
         """
@@ -416,14 +490,20 @@ Jira Issue: [{jira_data['key']}] {jira_data['title']}
 描述: {jira_data['description'][:self.max_description_length]}
 
 Wiki 概念: {concept['keyword']}
-内容: {concept['content'][:600]}
+来源文件: {concept.get('file', 'unknown')}
+内容: {concept['content'][:800]}
 
 请评估：
-1. 相关性得分（0-10分，10分最相关）
-2. 相关原因（简短说明为什么相关或不相关）
+1. 相关性得分（0-10分）
+   - 8-10分: 直接相关，核心概念
+   - 5-7分: 间接相关，背景知识
+   - 3-4分: 弱相关，可能有用
+   - 0-2分: 不相关
+2. 相关原因（说明为什么相关，以及如何帮助理解问题）
+3. 关键信息（从内容中提取 1-3 个最重要的知识点）
 
 请以 JSON 格式返回：
-{{"score": 分数, "reason": "原因"}}"""
+{{"score": 分数, "reason": "原因", "key_points": ["知识点1", "知识点2"]}}"""
 
         try:
             # 显示进度
@@ -438,10 +518,12 @@ Wiki 概念: {concept['keyword']}
 
             score = 0
             reason = '无法分析'
+            key_points = []
 
             if data:
                 score = int(data.get('score', 0))
                 reason = data.get('reason', '无法分析')
+                key_points = data.get('key_points', [])
             else:
                 # 回退：尝试提取键值对
                 score_match = re.search(r'["\']?score["\']?\s*[:：]\s*(\d+)', response, re.IGNORECASE)
@@ -456,7 +538,8 @@ Wiki 概念: {concept['keyword']}
             enhanced_concept = concept.copy()
             enhanced_concept['llm_analysis'] = {
                 'score': score,
-                'reason': reason
+                'reason': reason,
+                'key_points': key_points if isinstance(key_points, list) else []
             }
             return enhanced_concept
 
@@ -523,12 +606,17 @@ Wiki 概念: {concept['keyword']}
         # 按相关性得分排序（降序）
         enhanced_results.sort(key=lambda x: x.get('llm_analysis', {}).get('score', 0), reverse=True)
 
-        # 过滤掉低相关性概念（score < 5）
-        filtered_results = [r for r in enhanced_results if r.get('llm_analysis', {}).get('score', 0) >= 5]
+        # 过滤掉低相关性概念（使用配置的阈值，默认 3 分）
+        filtered_results = [r for r in enhanced_results if r.get('llm_analysis', {}).get('score', 0) >= self.min_relevance_score]
 
-        # 如果过滤后没有结果，保留得分最高的 3 个
-        if not filtered_results and enhanced_results:
-            filtered_results = enhanced_results[:3]
+        # 如果过滤后结果太少（< 3 个），降低阈值保留更多结果
+        if len(filtered_results) < 3 and enhanced_results:
+            # 保留得分 >= 2 的，或者至少保留前 5 个
+            filtered_results = [r for r in enhanced_results if r.get('llm_analysis', {}).get('score', 0) >= 2]
+            if len(filtered_results) < 3:
+                filtered_results = enhanced_results[:5]
+
+        print(f"   [knowledge] 过滤后保留 {len(filtered_results)} 个相关概念（阈值: {self.min_relevance_score}）")
 
         return filtered_results
 

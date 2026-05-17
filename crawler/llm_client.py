@@ -176,17 +176,41 @@ class OpenAIClient(BaseLLMClient):
         """
         try:
             # 尝试使用 chat completions API
+            # 构建请求参数
+            request_data = {
+                "model": self.model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature
+            }
+
+            # 对于支持推理模式的模型（如 Qwen），尝试禁用推理模式
+            # 方法1: 设置 reasoning_effort 为 none
+            # 方法2: 在 system prompt 中明确要求不要输出思考过程
+            if "qwen" in self.model.lower():
+                # 尝试添加系统提示，要求直接输出答案
+                if messages and messages[0].get("role") != "system":
+                    messages.insert(0, {
+                        "role": "system",
+                        "content": "直接输出最终答案，不要包含思考过程、推理步骤或分析过程。"
+                    })
+                elif messages and messages[0].get("role") == "system":
+                    # 如果已有系统提示，追加要求
+                    messages[0]["content"] += "\n\n重要：直接输出最终答案，不要包含思考过程、推理步骤或分析过程。"
+
             response = requests.post(
                 f"{self.base_url}/chat/completions",
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "max_tokens": max_tokens,
-                    "temperature": temperature
-                },
+                json=request_data,
                 headers={"Content-Type": "application/json; charset=utf-8"},
                 timeout=self.timeout
             )
+
+            # 如果是400错误，打印详细信息
+            if response.status_code == 400:
+                print(f"[ERROR] 400 Bad Request")
+                print(f"[ERROR] Request data: {request_data}")
+                print(f"[ERROR] Response: {response.text}")
+
             response.raise_for_status()
             response.encoding = 'utf-8'  # 确保响应使用 UTF-8 解码
 
@@ -207,16 +231,14 @@ class OpenAIClient(BaseLLMClient):
             if content:
                 return content
 
-            # 如果只有 reasoning_content，说明模型处于推理模式
-            # reasoning_content 通常包含推理过程，不是最终答案
-            # 不应该直接使用，否则会导致 JSON 解析等问题
+            # 如果只有 reasoning_content，临时使用它但记录警告
+            # TODO: 在 LM Studio 中禁用推理模式是更好的解决方案
             if reasoning_content:
                 print(f"[WARNING] 模型返回了 reasoning_content 但没有 content")
-                print(f"[WARNING] reasoning_content 通常是推理过程，不是最终答案")
-                print(f"[WARNING] 建议在模型配置中禁用推理模式，或使用非推理模型")
-                print(f"[WARNING] 当前将返回空内容以避免解析错误")
-                # 不返回 reasoning_content，避免后续解析错误
-                return ""
+                print(f"[WARNING] 这通常意味着模型处于推理模式")
+                print(f"[WARNING] 建议在 LM Studio 的模型设置中禁用推理模式")
+                print(f"[WARNING] 临时使用 reasoning_content 作为回退")
+                return reasoning_content
 
             # 两者都为空
             print(f"[DEBUG] LLM 返回空内容，完整响应: {result}")

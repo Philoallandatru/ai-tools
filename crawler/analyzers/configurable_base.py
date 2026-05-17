@@ -508,8 +508,10 @@ class ConfigurableAnalyzer(BaseAnalyzer):
         """
         return """要求：
 - 必须用中文回答
-- 直接输出分析结果，不要输出思考过程
-- 不要使用 <think> 标签"""
+- 直接输出最终答案，不要包含任何思考过程、推理步骤、分析过程
+- 不要使用 <think> 标签或类似的思考标记
+- 不要输出"让我分析"、"首先"、"然后"等过程性语言
+- 立即给出结论性的回答"""
 
     def log_progress(self, message: str, flush: bool = True) -> None:
         """

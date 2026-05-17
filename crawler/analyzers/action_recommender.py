@@ -51,56 +51,86 @@ class ActionRecommender(ConfigurableAnalyzer):
         root_cause = context.get_result('root_cause')
         similar_jira = context.get_result('similar_jira')
         closed_loop = context.get_result('closed_loop')
+        code_coverage = context.get_result('code_coverage')
+        comments = context.get_result('comments')
 
         # 构建上下文信息
         context_info = []
 
         if root_cause:
             context_info.append(f"根因分析: {root_cause.get('direct_cause', 'N/A')}")
+            if root_cause.get('root_cause'):
+                context_info.append(f"根本原因: {root_cause.get('root_cause', 'N/A')}")
+
+        if code_coverage:
+            files = code_coverage.get('code_references', {}).get('files', [])
+            if files:
+                context_info.append(f"涉及文件: {', '.join(files[:3])}")
+
+            modules = code_coverage.get('analysis', {}).get('core_modules', [])
+            if modules:
+                context_info.append(f"核心模块: {', '.join(modules[:3])}")
 
         if similar_jira and similar_jira.get('similar_issues'):
             similar_count = len(similar_jira['similar_issues'])
             context_info.append(f"发现 {similar_count} 个类似问题")
 
+            # 提取相似问题的解决方案
+            for issue in similar_jira['similar_issues'][:2]:
+                if issue.get('status') in ['已解决', 'Resolved', 'Closed']:
+                    context_info.append(f"  - {issue['key']}: {issue.get('relevance_analysis', '')[:100]}")
+
         if closed_loop:
             is_closed = closed_loop.get('is_closed', False)
             context_info.append(f"闭环状态: {'已闭环' if is_closed else '未闭环'}")
+            if not is_closed and closed_loop.get('evidence'):
+                context_info.append(f"  原因: {closed_loop.get('evidence', '')[:100]}")
+
+        if comments:
+            key_decisions = []
+            for comment in comments[:3]:
+                if '决策' in comment or '建议' in comment or '方案' in comment:
+                    key_decisions.append(comment[:80])
+            if key_decisions:
+                context_info.append(f"关键决策: {'; '.join(key_decisions)}")
 
         context_text = "\n".join(context_info) if context_info else "无额外上下文"
 
-        prompt = f"""请基于以下 Jira Issue 的分析结果，提供行动建议：
+        prompt = f"""请基于以下 Jira Issue 的分析结果，提供具体可执行的行动建议：
 
 Issue: [{jira_data['key']}] {jira_data['title']}
-状态: {jira_data['status']}
-优先级: {jira_data['priority']}
+状态: {jira_data['status']} | 优先级: {jira_data['priority']}
 
-分析上下文:
+上下文:
 {context_text}
 
-描述:
-{jira_data['description'][:800]}
+描述: {jira_data['description'][:150]}
 
-请从以下三个时间维度提供行动建议：
-1. 短期行动（1-2 周内）：立即需要采取的措施
-2. 中期行动（1-2 个月内）：需要规划和实施的改进
-3. 长期行动（3 个月以上）：系统性的优化和预防措施
+提供行动建议（短期/中期/长期），每条包含：
+[优先级] 标题
+- 位置：文件/函数
+- 工作量：时间
+- 步骤：2-3步
+- 验收：1-2条
+
+优先级：P0(严重) P1(重要) P2(改进)
 
 {self.build_chinese_requirements()}
-- 每个维度提供 2-3 条具体可执行的建议
-- 使用列表格式（数字或破折号开头）
-- 按照以下格式回答：
+每个维度2-3条，具体到文件和函数
 
-短期行动（1-2 周内）：
-1. [具体建议]
-2. [具体建议]
+格式：
+短期（1-2周）：
+1. [P0] ...
+   - 位置：...
+   - 工作量：...
+   - 步骤：...
+   - 验收标准：...
 
-中期行动（1-2 个月内）：
-1. [具体建议]
-2. [具体建议]
+中期（1-2月）：
+1. [P1] ...
 
-长期行动（3 个月以上）：
-1. [具体建议]
-2. [具体建议]
+长期（3月+）：
+1. [P2] ...
 """
         return prompt
 
@@ -140,7 +170,7 @@ Issue: [{jira_data['key']}] {jira_data['title']}
             re.DOTALL | re.IGNORECASE
         )
         if short_match:
-            result['short_term'] = self.extract_list_items(short_match.group(1))
+            result['short_term'] = self._parse_structured_actions(short_match.group(1))
 
         # 提取中期行动
         medium_match = re.search(
@@ -149,7 +179,7 @@ Issue: [{jira_data['key']}] {jira_data['title']}
             re.DOTALL | re.IGNORECASE
         )
         if medium_match:
-            result['medium_term'] = self.extract_list_items(medium_match.group(1))
+            result['medium_term'] = self._parse_structured_actions(medium_match.group(1))
 
         # 提取长期行动
         long_match = re.search(
@@ -158,6 +188,107 @@ Issue: [{jira_data['key']}] {jira_data['title']}
             re.DOTALL | re.IGNORECASE
         )
         if long_match:
-            result['long_term'] = self.extract_list_items(long_match.group(1))
+            result['long_term'] = self._parse_structured_actions(long_match.group(1))
 
         return result
+
+    def _parse_structured_actions(self, text: str) -> list:
+        """
+        解析结构化的行动建议
+
+        Args:
+            text: 包含行动建议的文本
+
+        Returns:
+            结构化的行动建议列表
+        """
+        import re
+
+        actions = []
+
+        # 匹配每个行动项（以数字开头，可能包含优先级标签）
+        # 格式：1. [P0] 标题
+        action_pattern = r'^\s*(\d+)\.\s*(\[P[0-2]\])?\s*(.+?)(?=^\s*\d+\.\s*(?:\[P[0-2]\])?\s*\S|$)'
+        matches = re.finditer(action_pattern, text, re.MULTILINE | re.DOTALL)
+
+        for match in matches:
+            priority = match.group(2).strip('[]') if match.group(2) else 'P1'
+            content = match.group(3).strip()
+
+            # 解析标题（第一行）
+            lines = content.split('\n')
+            title = lines[0].strip()
+
+            # 解析详细信息
+            location = ''
+            effort = ''
+            steps = []
+            acceptance = []
+
+            in_steps = False
+            in_acceptance = False
+
+            for line in lines[1:]:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+
+                # 提取位置
+                if line.startswith('- 位置：') or line.startswith('- 位置:'):
+                    location = re.sub(r'^- 位置[：:]\s*', '', line)
+                    in_steps = False
+                    in_acceptance = False
+
+                # 提取工作量
+                elif line.startswith('- 工作量：') or line.startswith('- 工作量:'):
+                    effort = re.sub(r'^- 工作量[：:]\s*', '', line)
+                    in_steps = False
+                    in_acceptance = False
+
+                # 提取步骤标题
+                elif line.startswith('- 步骤：') or line.startswith('- 步骤:'):
+                    in_steps = True
+                    in_acceptance = False
+
+                # 提取验收标准标题
+                elif line.startswith('- 验收标准：') or line.startswith('- 验收标准:'):
+                    in_steps = False
+                    in_acceptance = True
+
+                # 提取步骤子项（数字列表）
+                elif in_steps and re.match(r'^\d+\.\s+', line):
+                    step = re.sub(r'^\d+\.\s+', '', line)
+                    steps.append(step)
+
+                # 提取验收标准子项（破折号列表）
+                elif in_acceptance and line.startswith('- '):
+                    criterion = re.sub(r'^- ', '', line)
+                    acceptance.append(criterion)
+
+            # 如果没有解析到结构化信息，使用简单格式
+            if not location and not effort and not steps and not acceptance:
+                # 简单格式：只有标题
+                actions.append({
+                    'priority': priority,
+                    'title': title,
+                    'action': title  # 兼容旧格式
+                })
+            else:
+                # 结构化格式
+                actions.append({
+                    'priority': priority,
+                    'title': title,
+                    'action': title,  # 兼容旧格式
+                    'location': location,
+                    'effort': effort,
+                    'steps': steps,
+                    'acceptance_criteria': acceptance
+                })
+
+        # 如果没有匹配到结构化格式，回退到简单列表提取
+        if not actions:
+            simple_actions = self.extract_list_items(text)
+            # 转换为字典格式
+            actions = [{'priority': 'P1', 'title': action, 'action': action} for action in simple_actions]
+
+        return actions

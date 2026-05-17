@@ -37,6 +37,26 @@ wiki/
 
 # 生成的报告文件
 reports/
+test_reports/
+
+# 缓存文件
+.cache/
+
+# Claude Code 相关
+.claude/
+
+# 临时测试文件
+test_*.py
+!test-sources/
+
+# 临时文档（保留重要的设计文档）
+*_TEST_*.md
+COMMAND_TEST_REPORT.md
+LOCAL_MODEL_TEST.md
+REPORT_REVIEW.md
+SETUP_COMPLETE.md
+TEST_RESULTS.md
+WIKI_TEST_RESULTS.md
 
 # Node.js
 node_modules/

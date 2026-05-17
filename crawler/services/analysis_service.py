@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from crawler.analyzers.action_recommender import ActionRecommender
 from crawler.analyzers.closed_loop_checker import ClosedLoopChecker
+from crawler.analyzers.code_coverage_analyzer import CodeCoverageAnalyzer
 from crawler.analyzers.comment_analyzer import CommentAnalyzer
 from crawler.analyzers.custom_analyzer import CustomAnalyzer
 from crawler.analyzers.issue_summary_analyzer import IssueSummaryAnalyzer
@@ -182,6 +183,11 @@ class AnalysisService:
 
         closed_loop_config = jira_analysis_config.get("closed_loop", {})
         analyzer.register_analyzer(ClosedLoopChecker(llm_client, config=closed_loop_config))
+
+        # 代码覆盖率分析器
+        code_coverage_config = jira_analysis_config.get("code_coverage", {})
+        if code_coverage_config.get("enabled", True):
+            analyzer.register_analyzer(CodeCoverageAnalyzer(llm_client, config=code_coverage_config))
 
         comments_config = jira_analysis_config.get("comments", {})
         analyzer.register_analyzer(CommentAnalyzer(llm_client, config=comments_config))
