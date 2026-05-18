@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 from crawler.analyzers.configurable_base import ConfigurableAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
+from crawler.prompt_templates import ActionRecommenderPromptTemplate
 
 
 class ActionRecommender(ConfigurableAnalyzer):
@@ -38,7 +39,7 @@ class ActionRecommender(ConfigurableAnalyzer):
 
     def _build_prompt(self, jira_data: Dict[str, Any], context: AnalysisContext) -> str:
         """
-        构建行动建议提示词
+        构建行动建议提示词（使用优化的模板）
 
         Args:
             jira_data: Jira 数据
@@ -47,92 +48,35 @@ class ActionRecommender(ConfigurableAnalyzer):
         Returns:
             提示词字符串
         """
-        # 收集前面的分析结果（使用基类方法）
+        # 收集前面的分析结果（精简版）
         root_cause = context.get_result('root_cause')
         similar_jira = context.get_result('similar_jira')
         closed_loop = context.get_result('closed_loop')
         code_coverage = context.get_result('code_coverage')
-        comments = context.get_result('comments')
 
-        # 构建上下文信息
+        # 构建上下文摘要
         context_info = []
 
         if root_cause:
-            context_info.append(f"根因分析: {root_cause.get('direct_cause', 'N/A')}")
-            if root_cause.get('root_cause'):
-                context_info.append(f"根本原因: {root_cause.get('root_cause', 'N/A')}")
+            context_info.append(f"根因: {root_cause.get('direct_cause', 'N/A')[:100]}")
 
         if code_coverage:
             files = code_coverage.get('code_references', {}).get('files', [])
             if files:
                 context_info.append(f"涉及文件: {', '.join(files[:3])}")
 
-            modules = code_coverage.get('analysis', {}).get('core_modules', [])
-            if modules:
-                context_info.append(f"核心模块: {', '.join(modules[:3])}")
-
         if similar_jira and similar_jira.get('similar_issues'):
             similar_count = len(similar_jira['similar_issues'])
-            context_info.append(f"发现 {similar_count} 个类似问题")
-
-            # 提取相似问题的解决方案
-            for issue in similar_jira['similar_issues'][:2]:
-                if issue.get('status') in ['已解决', 'Resolved', 'Closed']:
-                    context_info.append(f"  - {issue['key']}: {issue.get('relevance_analysis', '')[:100]}")
+            context_info.append(f"类似问题: {similar_count}个")
 
         if closed_loop:
             is_closed = closed_loop.get('is_closed', False)
-            context_info.append(f"闭环状态: {'已闭环' if is_closed else '未闭环'}")
-            if not is_closed and closed_loop.get('evidence'):
-                context_info.append(f"  原因: {closed_loop.get('evidence', '')[:100]}")
+            context_info.append(f"闭环: {'是' if is_closed else '否'}")
 
-        if comments:
-            key_decisions = []
-            for comment in comments[:3]:
-                if '决策' in comment or '建议' in comment or '方案' in comment:
-                    key_decisions.append(comment[:80])
-            if key_decisions:
-                context_info.append(f"关键决策: {'; '.join(key_decisions)}")
+        context_text = "\n".join(context_info) if context_info else ""
 
-        context_text = "\n".join(context_info) if context_info else "无额外上下文"
-
-        prompt = f"""请基于以下 Jira Issue 的分析结果，提供具体可执行的行动建议：
-
-Issue: [{jira_data['key']}] {jira_data['title']}
-状态: {jira_data['status']} | 优先级: {jira_data['priority']}
-
-上下文:
-{context_text}
-
-描述: {jira_data['description'][:150]}
-
-提供行动建议（短期/中期/长期），每条包含：
-[优先级] 标题
-- 位置：文件/函数
-- 工作量：时间
-- 步骤：2-3步
-- 验收：1-2条
-
-优先级：P0(严重) P1(重要) P2(改进)
-
-{self.build_chinese_requirements()}
-每个维度2-3条，具体到文件和函数
-
-格式：
-短期（1-2周）：
-1. [P0] ...
-   - 位置：...
-   - 工作量：...
-   - 步骤：...
-   - 验收标准：...
-
-中期（1-2月）：
-1. [P1] ...
-
-长期（3月+）：
-1. [P2] ...
-"""
-        return prompt
+        # 使用优化的模板
+        return ActionRecommenderPromptTemplate.build(jira_data, context_text)
 
     def _parse_response(self, response: str) -> Dict[str, Any]:
         """

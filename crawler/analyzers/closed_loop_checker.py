@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 from crawler.analyzers.configurable_base import ConfigurableAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
+from crawler.prompt_templates import ClosedLoopPromptTemplate
 
 
 class ClosedLoopChecker(ConfigurableAnalyzer):
@@ -55,7 +56,7 @@ class ClosedLoopChecker(ConfigurableAnalyzer):
 
     def _build_prompt(self, jira_data: Dict[str, Any], context: AnalysisContext) -> str:
         """
-        构建闭环检查提示词
+        构建闭环检查提示词（使用优化的模板）
 
         Args:
             jira_data: Jira 数据
@@ -67,51 +68,8 @@ class ClosedLoopChecker(ConfigurableAnalyzer):
         # 使用基类的根因上下文格式化
         root_cause_summary = self.format_root_cause_context(context)
 
-        # 获取评论内容
-        comments_text = ""
-        if jira_data.get('comments'):
-            comments_text = "\n评论内容:\n" + "\n---\n".join(jira_data['comments'][:10])  # 增加到 10 条
-
-        prompt = f"""请检查以下 Jira Issue 是否已形成闭环：
-
-Issue: [{jira_data['key']}] {jira_data['title']}
-状态: {jira_data['status']}
-
-描述:
-{jira_data['description'][:800]}
-
-{root_cause_summary}
-
-{comments_text}
-
-请检查以下三个方面，并提供明确的证据：
-
-1. 根因识别：是否明确识别了问题的根本原因？
-   - 如果是，请引用具体的根因描述
-
-2. 修复方案：是否提出并实施了修复方案？
-   - 如果是，请引用具体的修复方案内容
-
-3. 验证测试：是否进行了验证测试并通过？
-   - 如果是，请引用具体的测试结果（如测试数量、成功率、测试环境等）
-   - 注意：只有找到明确的测试数据（如"测试了 X 台设备"、"成功率 Y%"、"测试通过"等）才能判断为"是"
-   - 如果只是提到"状态为已修复"但没有具体测试数据，应判断为"否"
-
-{self.build_chinese_requirements()}
-- 严格按照以下格式回答（不要添加额外的解释）：
-
-根因识别：是/否
-证据：[引用具体内容]
-
-修复方案：是/否
-证据：[引用具体内容]
-
-验证测试：是/否
-证据：[引用具体内容，如果没有明确测试数据则写"无"]
-
-结论：已闭环/未闭环
-"""
-        return prompt
+        # 使用优化的模板
+        return ClosedLoopPromptTemplate.build(jira_data, root_cause_summary)
 
     def _parse_response(self, response: str) -> Dict[str, Any]:
         """

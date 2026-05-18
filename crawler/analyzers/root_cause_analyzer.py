@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 from crawler.analyzers.configurable_base import ConfigurableAnalyzer
 from crawler.analysis_context import AnalysisContext
 from crawler.llm_client import BaseLLMClient
+from crawler.prompt_templates import RootCausePromptTemplate
 
 
 class RootCauseAnalyzer(ConfigurableAnalyzer):
@@ -38,7 +39,7 @@ class RootCauseAnalyzer(ConfigurableAnalyzer):
 
     def _build_prompt(self, jira_data: Dict[str, Any], context: AnalysisContext) -> str:
         """
-        构建根因分析提示词
+        构建根因分析提示词（使用优化的模板）
 
         Args:
             jira_data: Jira 数据
@@ -50,31 +51,8 @@ class RootCauseAnalyzer(ConfigurableAnalyzer):
         # 使用基类的知识上下文格式化
         knowledge_context = self.format_knowledge_context(context)
 
-        prompt = f"""请对以下 Jira Issue 进行根因分析：
-
-Issue: [{jira_data['key']}] {jira_data['title']}
-状态: {jira_data['status']}
-优先级: {jira_data['priority']}
-
-描述:
-{jira_data['description'][:1000]}
-
-{knowledge_context}
-
-请从以下三个层面分析问题根因：
-1. 直接原因：问题的表面原因是什么？
-2. 深层原因：导致这个问题的底层技术原因是什么？
-3. 触发条件：在什么条件下会触发这个问题？
-
-{self.build_chinese_requirements()}
-- 不要输出 JSON 格式
-- 按照以下格式回答：
-
-直接原因: [你的分析]
-深层原因: [你的分析]
-触发条件: [你的分析]
-"""
-        return prompt
+        # 使用优化的模板
+        return RootCausePromptTemplate.build(jira_data, knowledge_context)
 
     def _parse_response(self, response: str) -> Dict[str, Any]:
         """

@@ -15,6 +15,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from crawler.analyzers.configurable_base import ConfigurableAnalyzer
 from crawler.analysis_context import AnalysisContext
+from crawler.prompt_templates import MetadataPromptTemplate
 
 
 class MetadataExtractor(ConfigurableAnalyzer):
@@ -53,7 +54,7 @@ class MetadataExtractor(ConfigurableAnalyzer):
 
     def _build_prompt(self, jira_data: Dict[str, Any], context: AnalysisContext) -> str:
         """
-        构建元数据提取提示词
+        构建元数据提取提示词（使用优化的模板）
 
         Args:
             jira_data: Jira 数据
@@ -65,9 +66,8 @@ class MetadataExtractor(ConfigurableAnalyzer):
         # 获取相关分析结果
         root_cause = context.get_result('root_cause')
         code_coverage = context.get_result('code_coverage')
-        comments = jira_data.get('comments', [])
 
-        # 构建上下文信息
+        # 构建上下文信息（精简版）
         context_info = []
 
         if root_cause:
@@ -80,106 +80,10 @@ class MetadataExtractor(ConfigurableAnalyzer):
             if files:
                 context_info.append(f"涉及文件: {', '.join(files[:5])}")
 
-        context_text = "\n".join(context_info) if context_info else "无额外上下文"
+        context_text = "\n".join(context_info) if context_info else ""
 
-        # 限制评论长度
-        comments_text = '\n\n---\n\n'.join(comments[:10])
-        if len(comments_text) > 4000:
-            comments_text = comments_text[:4000] + '\n...(评论过长，已截断)'
-
-        prompt = f"""请从以下 Jira Issue 中提取关键元数据信息。
-
-Issue: [{jira_data['key']}] {jira_data['title']}
-状态: {jira_data['status']}
-优先级: {jira_data['priority']}
-
-分析上下文:
-{context_text}
-
-描述:
-{jira_data['description'][:1500]}
-
-评论 (共 {len(comments)} 条):
-{comments_text}
-
-请提取以下信息（如果找不到，标注"未提及"）：
-
-## 1. 影响范围
-- 受影响客户: 哪些客户受影响（公司名称）
-- 受影响设备数: 大约多少台设备受影响
-- 严重程度: 对客户的影响程度（高/中/低）
-
-## 2. 时间线
-- 问题发现时间: 何时发现问题
-- 修复完成时间: 何时完成修复
-- 验证完成时间: 何时完成验证
-- 总耗时: 从发现到解决的总时间
-
-## 3. 修复详情
-- 修改文件: 修改了哪些文件（文件路径）
-- Commit ID: 提交的 commit ID 或 PR 编号
-- 代码变更量: 大约多少行代码变更
-- Code Review: 是否经过 Code Review，审核人是谁
-
-## 4. 测试信息
-- 测试用例: 新增或修改了哪些测试用例
-- 测试覆盖率: 测试覆盖率如何
-- 自动化测试: 是否有自动化测试
-- 回归测试: 回归测试结果如何
-- 大规模验证: 是否进行了大规模验证（多少台设备）
-
-## 5. 风险评估
-- 不修复后果: 如果不修复会有什么后果
-- 修复风险: 修复方案有什么风险
-- 需要升级: 客户是否需要升级固件/软件
-
-## 6. 成本分析
-- 修复成本: 修复花费的人力成本（人天）
-- 测试成本: 测试花费的人力成本（人天）
-- 客户支持成本: 客户支持的成本估算
-
-{self.build_chinese_requirements()}
-- 如果某个字段找不到信息，明确标注"未提及"
-- 数字信息尽量提取准确值（如"1000台设备"、"15行代码"）
-- 时间信息尽量提取具体时间（如"2026-05-02 14:00"）
-
-请按照以下格式回答：
-
-## 影响范围
-- 受影响客户: ...
-- 受影响设备数: ...
-- 严重程度: ...
-
-## 时间线
-- 问题发现时间: ...
-- 修复完成时间: ...
-- 验证完成时间: ...
-- 总耗时: ...
-
-## 修复详情
-- 修改文件: ...
-- Commit ID: ...
-- 代码变更量: ...
-- Code Review: ...
-
-## 测试信息
-- 测试用例: ...
-- 测试覆盖率: ...
-- 自动化测试: ...
-- 回归测试: ...
-- 大规模验证: ...
-
-## 风险评估
-- 不修复后果: ...
-- 修复风险: ...
-- 需要升级: ...
-
-## 成本分析
-- 修复成本: ...
-- 测试成本: ...
-- 客户支持成本: ...
-"""
-        return prompt
+        # 使用优化的模板
+        return MetadataPromptTemplate.build(jira_data, context_text)
 
     def _parse_response(self, response: str) -> Dict[str, Any]:
         """
