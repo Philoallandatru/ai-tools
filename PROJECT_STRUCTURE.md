@@ -12,7 +12,17 @@ ai-tools/
 │   ├── error_handler.py      # 错误处理和重试逻辑
 │   ├── doc_splitter.py       # 文档拆分工具
 │   ├── searcher.py           # 全文搜索引擎
-│   └── doc_analyzer.py       # 文档分析器
+│   ├── doc_analyzer.py       # 文档分析器
+│   ├── analyzers/            # Jira 分析器
+│   │   ├── issue_summary.py  # 问题摘要分析器
+│   │   ├── root_cause.py     # 根因分析器
+│   │   ├── similar_jira.py   # 类似问题查找器
+│   │   ├── closed_loop.py    # 闭环检查器
+│   │   ├── comment_analyzer.py # 评论分析器（智能采样）
+│   │   ├── metadata_extractor.py # 元数据提取器
+│   │   └── action_recommender.py # 行动建议生成器
+│   └── filters/              # LLM 响应过滤器
+│       └── reasoning_filter.py # 推理过程过滤器
 │
 ├── docs/                      # 项目文档
 │   ├── DESIGN.md             # 系统设计文档
@@ -23,9 +33,28 @@ ai-tools/
 │   ├── WIKI_SETUP_COMPLETE.md # Wiki 集成完成总结
 │   └── DOC_ANALYZER_DESIGN.md # 文档分析器设计
 │
+├── scripts/                   # 工具脚本
+│   ├── analyze_prompts.py    # Prompt 分析工具
+│   ├── diagnose_confluence.py # Confluence 诊断工具
+│   ├── download_modelscope_model.py # ModelScope 模型下载
+│   ├── health-check.py       # 健康检查脚本
+│   ├── run_e2e_tests.py      # E2E 测试运行器
+│   ├── scheduler.py          # 定时任务调度器
+│   ├── test_all_commands.bat # 命令测试（Windows）
+│   ├── test_all_commands.sh  # 命令测试（Unix/Linux）
+│   └── README.md             # 脚本说明文档
+│
 ├── tests/                     # 测试文件
 │   ├── integration/          # 集成测试
 │   ├── unit/                 # 单元测试
+│   ├── manual/               # 手动测试脚本
+│   │   ├── test_comment_sampling.py # 评论采样测试
+│   │   ├── test_full_analysis.py # 完整分析测试
+│   │   ├── test_filter_integration.py # 过滤器集成测试
+│   │   ├── test_mock_filter.py # Mock 过滤器测试
+│   │   ├── test_prompt_optimization.py # Prompt 优化测试
+│   │   ├── test_reasoning_filter.py # 推理过滤器测试
+│   │   └── README.md         # 手动测试说明
 │   ├── fixtures/             # 测试固件
 │   ├── outputs/              # 测试输出文件
 │   ├── test-sources/         # 测试用源文件
@@ -37,8 +66,6 @@ ai-tools/
 │   └── doc_analysis_config.yaml  # 文档分析配置
 │
 ├── cli.py                     # CLI 命令入口
-├── scheduler.py               # 定时任务调度器
-├── health-check.py            # 健康检查脚本
 ├── run-sync.ps1              # Windows PowerShell 同步脚本
 │
 ├── config.example.yaml        # Atlassian 配置模板
@@ -56,20 +83,25 @@ ai-tools/
 以下目录包含生成的文件或敏感信息，不会提交到 Git：
 
 ```
-sources/                      # 爬取的源文件（57 个 Markdown）
-wiki/                         # 编译后的知识库（341 个概念页面）
+sources/                      # 爬取的源文件（Markdown）
+wikis/                        # 编译后的知识库
   ├── concepts/              # 概念页面
   ├── index.md               # 索引
   └── MOC.md                 # 概念地图
 reports/                     # 分析报告输出
+test_results/                # 测试结果输出
+test_reports/                # 测试报告
 .llmwiki/                    # Wiki 编译缓存和状态
 .venv/                       # Python 虚拟环境
 __pycache__/                 # Python 缓存
 config.yaml                  # 实际配置（包含敏感信息）
 .env                         # 环境变量（包含 API 密钥）
 .atlassian-sync-state.json   # 同步状态
+.sync-state.json             # 同步状态
 sync-errors.log              # 错误日志
 .claude/                     # Claude Code 工作目录
+.cache/                      # 缓存目录
+uv.lock                      # UV 锁文件
 ```
 
 ## 文件说明
@@ -85,16 +117,48 @@ sync-errors.log              # 错误日志
   - `list-sources`: 列出数据源
   - `status`: 查看同步状态
 
-- **scheduler.py**: 定时任务调度器，支持自动同步
-
-- **health-check.py**: 健康检查脚本，监控系统状态
-
 ### 爬虫模块
 
 - **crawler/confluence.py**: Confluence 页面爬取逻辑
 - **crawler/jira.py**: Jira Issue 爬取逻辑
 - **crawler/storage.py**: Markdown 文件生成和存储
 - **crawler/error_handler.py**: 统一的错误处理和重试机制
+
+### Jira 分析器
+
+- **crawler/analyzers/issue_summary.py**: 问题摘要分析器
+  - 提取客户名称、测试项目、测试平台、根因、修复方案
+- **crawler/analyzers/root_cause.py**: 根因分析器
+  - 分析直接原因、深层原因、触发条件
+- **crawler/analyzers/similar_jira.py**: 类似问题查找器
+  - 基于 TF-IDF 相似度查找相关问题
+- **crawler/analyzers/closed_loop.py**: 闭环检查器
+  - 检查根因识别、修复方案、验证测试是否完成
+- **crawler/analyzers/comment_analyzer.py**: 评论分析器
+  - **智能采样策略**: 根据评论数量动态调整采样方式
+  - ≤10条: 全部分析
+  - 11-30条: 首5+后5
+  - 31-50条: 首5+关键词5+后5
+  - >50条: 首3+关键词10+后3
+- **crawler/analyzers/metadata_extractor.py**: 元数据提取器
+  - 提取影响范围、时间线、优先级等关键信息
+- **crawler/analyzers/action_recommender.py**: 行动建议生成器
+  - 生成技术、流程、测试三个维度的行动建议
+
+### LLM 响应过滤器
+
+- **crawler/filters/reasoning_filter.py**: 推理过程过滤器
+  - 自动移除 LLM 响应中的思考过程标签
+  - 支持多种标签格式: `<thinking>`, `<think>`, `<reflection>` 等
+
+### 工具脚本
+
+- **scripts/scheduler.py**: 定时任务调度器，支持自动同步
+- **scripts/health-check.py**: 健康检查脚本，监控系统状态
+- **scripts/analyze_prompts.py**: Prompt 分析和优化工具
+- **scripts/diagnose_confluence.py**: Confluence 连接诊断工具
+- **scripts/download_modelscope_model.py**: ModelScope 模型下载工具
+- **scripts/run_e2e_tests.py**: E2E 测试运行器
 
 ### 配置文件
 
