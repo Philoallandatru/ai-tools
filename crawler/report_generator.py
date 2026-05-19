@@ -313,6 +313,7 @@ class ReportGenerator:
             from crawler.analyzers.project_health_analyzer import ProjectHealthAnalyzer
             from crawler.analyzers.project_status_analyzer import ProjectStatusAnalyzer
             from crawler.analyzers.team_collaboration_analyzer import TeamCollaborationAnalyzer
+            from crawler.analyzers.action_items_analyzer import ActionItemsAnalyzer
 
             # 创建报告分析器
             analyzer = ReportAnalyzer(config=self.config)
@@ -367,6 +368,14 @@ class ReportGenerator:
                     analyzers_config.get('project_status', {})
                 )
                 analyzer.register_analyzer(status_analyzer)
+
+            # 行动项清单分析器（依赖其他分析器的结果，最后执行）
+            if analyzers_config.get('action_items', {}).get('enabled', True):
+                action_items_analyzer = ActionItemsAnalyzer(
+                    analyzer.llm_client,
+                    analyzers_config.get('action_items', {})
+                )
+                analyzer.register_analyzer(action_items_analyzer)
 
             # 执行分析
             print("   🔍 开始报告分析...")
@@ -610,13 +619,83 @@ class ReportGenerator:
                         lines.append("")
 
                 # 改进建议
-                recommendations = summary.get('recommendations', [])
+                collab_summary = collaboration_result.get('summary', {})
+                recommendations = collab_summary.get('recommendations', [])
                 if recommendations:
                     lines.append("### 改进建议")
                     lines.append("")
                     for i, rec in enumerate(recommendations, 1):
                         lines.append(f"{i}. {rec}")
                     lines.append("")
+
+            # 行动项清单
+            action_items_result = analysis.get('action_items', {})
+            if action_items_result.get('success'):
+                lines.append("## 📋 行动项清单")
+                lines.append("")
+
+                # 摘要
+                action_summary = action_items_result.get('summary', '')
+                if action_summary:
+                    lines.append(f"**{action_summary}**")
+                    lines.append("")
+
+                # 按优先级分类显示
+                by_priority = action_items_result.get('by_priority', {})
+
+                # 高优先级
+                high_priority = by_priority.get('高', [])
+                if high_priority:
+                    lines.append("### 🔴 高优先级")
+                    lines.append("")
+                    for i, item in enumerate(high_priority, 1):
+                        lines.append(f"#### {i}. {item.get('title', '未命名')}")
+                        lines.append("")
+                        if item.get('description'):
+                            lines.append(f"**描述**: {item['description']}")
+                            lines.append("")
+                        if item.get('expected_outcome'):
+                            lines.append(f"**预期效果**: {item['expected_outcome']}")
+                            lines.append("")
+                        if item.get('suggested_owner'):
+                            lines.append(f"**建议责任人**: {item['suggested_owner']}")
+                            lines.append("")
+
+                # 中优先级
+                medium_priority = by_priority.get('中', [])
+                if medium_priority:
+                    lines.append("### 🟡 中优先级")
+                    lines.append("")
+                    for i, item in enumerate(medium_priority, 1):
+                        lines.append(f"#### {i}. {item.get('title', '未命名')}")
+                        lines.append("")
+                        if item.get('description'):
+                            lines.append(f"**描述**: {item['description']}")
+                            lines.append("")
+                        if item.get('expected_outcome'):
+                            lines.append(f"**预期效果**: {item['expected_outcome']}")
+                            lines.append("")
+                        if item.get('suggested_owner'):
+                            lines.append(f"**建议责任人**: {item['suggested_owner']}")
+                            lines.append("")
+
+                # 低优先级
+                low_priority = by_priority.get('低', [])
+                if low_priority:
+                    lines.append("### 🟢 低优先级")
+                    lines.append("")
+                    for i, item in enumerate(low_priority, 1):
+                        lines.append(f"#### {i}. {item.get('title', '未命名')}")
+                        lines.append("")
+                        if item.get('description'):
+                            lines.append(f"**描述**: {item['description']}")
+                            lines.append("")
+                        if item.get('expected_outcome'):
+                            lines.append(f"**预期效果**: {item['expected_outcome']}")
+                            lines.append("")
+                        if item.get('suggested_owner'):
+                            lines.append(f"**建议责任人**: {item['suggested_owner']}")
+                            lines.append("")
 
             # 执行摘要
             summary_result = analysis.get('report_summary', {})
