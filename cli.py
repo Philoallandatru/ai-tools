@@ -232,9 +232,11 @@ def status(config):
 @click.option('--resume', is_flag=True, help='从上次失败处继续')
 @click.option('--all-wikis', is_flag=True, help='编译所有 wiki')
 @click.option('--config', default='config.yaml', help='配置文件路径')
+@click.option('--llm-base-url', help='LLM API base URL (覆盖配置文件)')
+@click.option('--llm-model', help='LLM 模型名称 (覆盖配置文件)')
 @require_config
 @handle_cli_errors
-def compile_wiki(wiki_name, files, batch_size, resume, all_wikis, config):
+def compile_wiki(wiki_name, files, batch_size, resume, all_wikis, config, llm_base_url, llm_model):
     """编译 wiki 知识库（支持批量编译和多 wiki）"""
     from crawler.config.config_manager import ConfigManager
     from crawler.wiki_manager import WikiManager
@@ -299,6 +301,15 @@ def compile_wiki(wiki_name, files, batch_size, resume, all_wikis, config):
             output.warning(f"temp/ 目录为空，跳过编译")
             continue
 
+        # 覆盖 LLM 配置（如果提供了命令行参数）
+        if llm_base_url or llm_model:
+            if 'llm' not in cfg:
+                cfg['llm'] = {}
+            if llm_base_url:
+                cfg['llm']['base_url'] = llm_base_url
+            if llm_model:
+                cfg['llm']['model'] = llm_model
+
         # 创建批量编译器
         compilation_config = wiki_config.get('compilation', {})
         compiler = WikiBatchCompiler(
@@ -307,7 +318,8 @@ def compile_wiki(wiki_name, files, batch_size, resume, all_wikis, config):
                 batch_size=batch_size or compilation_config.get('batch_size', 5),
                 compile_timeout=compilation_config.get('compile_timeout', 300),
                 stop_on_failure=compilation_config.get('stop_on_failure', True)
-            )
+            ),
+            llm_config=cfg.get('llm', {})
         )
 
         # 开始编译
@@ -887,10 +899,12 @@ def export_filtered(doc_type, statuses, today, yesterday, days, output, source_d
               default='auto_match', help='Wiki 选择模式')
 @click.option('--output-dir', default='./reports', help='输出目录')
 @click.option('--llm-provider', type=click.Choice(['openai', 'mock']), default='openai', help='LLM 提供商')
+@click.option('--llm-base-url', help='LLM API base URL')
+@click.option('--llm-model', help='LLM 模型名称')
 @click.option('--config', default='config.yaml', help='配置文件路径')
 @require_config
 @handle_cli_errors
-def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_provider, config):
+def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_provider, llm_base_url, llm_model, config):
     """分析 Jira issue（支持多 wiki）"""
     output_cli = CLIOutput()
     cfg = ConfigManager(config).load()  # 返回字典
@@ -899,12 +913,22 @@ def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_pr
     if wiki_name and wiki_mode != 'specify':
         wiki_mode = 'specify'
 
+    # 覆盖 LLM 配置
+    if llm_base_url or llm_model:
+        if 'llm' not in cfg:
+            cfg['llm'] = {}
+        if llm_base_url:
+            cfg['llm']['base_url'] = llm_base_url
+        if llm_model:
+            cfg['llm']['model'] = llm_model
+
     service = AnalysisService(config=cfg)
     report_path = service.analyze_jira(
         issue_key=issue_key,
         output_dir=output_dir,
         wiki_mode=wiki_mode,
-        wiki_name=wiki_name
+        wiki_name=wiki_name,
+        llm_provider=llm_provider
     )
 
     output_cli.success(f"分析报告已生成: {report_path}")

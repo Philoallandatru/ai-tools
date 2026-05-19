@@ -37,15 +37,19 @@ env/
 # Environment
 .env
 .env.local
+config.yaml
 
 # Cache
 .cache/
 *.log
 sync-errors.log
 
+# Runtime data
+sources/
+wikis/
+
 # Test outputs
-test_results/
-test_reports/
+tests/outputs/
 reports/
 
 # Claude

@@ -89,8 +89,7 @@ wikis/                        # 编译后的知识库
   ├── index.md               # 索引
   └── MOC.md                 # 概念地图
 reports/                     # 分析报告输出
-test_results/                # 测试结果输出
-test_reports/                # 测试报告
+tests/outputs/               # 测试输出（包含测试结果和报告）
 .llmwiki/                    # Wiki 编译缓存和状态
 .venv/                       # Python 虚拟环境
 __pycache__/                 # Python 缓存

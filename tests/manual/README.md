@@ -56,5 +56,8 @@ python tests/manual/test_prompt_optimization.py
 
 - These are manual tests, not automated unit tests
 - Some tests require external services (LLM, Jira)
-- Test results are saved to `test_results/` directory
+- Test results are saved to `tests/outputs/` directory:
+  - `jira/` - Jira analysis results
+  - `reports/` - Test reports
+  - `archive/` - Historical test files
 - Check individual test files for specific requirements

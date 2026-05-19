@@ -35,9 +35,10 @@ class BatchStatus:
 class WikiBatchCompiler:
     """Wiki 批量编译管理器"""
 
-    def __init__(self, wiki_path: Path, config: BatchCompilationConfig):
+    def __init__(self, wiki_path: Path, config: BatchCompilationConfig, llm_config: Optional[Dict[str, Any]] = None):
         self.wiki_path = wiki_path
         self.config = config
+        self.llm_config = llm_config or {}
         self.temp_dir = wiki_path / "temp"
         self.sources_dir = wiki_path / "sources"
         self.state_file = wiki_path / ".batch-state.json"
@@ -147,10 +148,26 @@ class WikiBatchCompiler:
 
     def _run_compilation(self) -> None:
         """运行 npx llm-wiki-compiler compile"""
+        import os
+
         cmd = ["npx", "llm-wiki-compiler", "compile"]
+
+        # 设置环境变量（如果提供了 LLM 配置）
+        env = os.environ.copy()
+        if self.llm_config:
+            if 'base_url' in self.llm_config:
+                env['OPENAI_BASE_URL'] = self.llm_config['base_url']
+            if 'api_key' in self.llm_config:
+                env['OPENAI_API_KEY'] = self.llm_config['api_key']
+            elif 'OPENAI_API_KEY' not in env:
+                env['OPENAI_API_KEY'] = 'dummy'  # 本地 LLM 不需要真实 key
+            if 'model' in self.llm_config:
+                env['OPENAI_MODEL'] = self.llm_config['model']
 
         print(f"  运行编译: {' '.join(cmd)}")
         print(f"  工作目录: {self.wiki_path}")
+        if 'OPENAI_BASE_URL' in env:
+            print(f"  LLM Base URL: {env['OPENAI_BASE_URL']}")
 
         result = subprocess.run(
             cmd,
@@ -158,7 +175,8 @@ class WikiBatchCompiler:
             capture_output=True,
             text=True,
             timeout=self.config.compile_timeout,
-            shell=True  # Windows 需要 shell=True
+            shell=True,  # Windows 需要 shell=True
+            env=env
         )
 
         if result.returncode != 0:

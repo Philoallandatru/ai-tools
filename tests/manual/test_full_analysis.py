@@ -49,7 +49,9 @@ def analyze_single_issue(analyzer, issue_key: str, output_dir: Path) -> bool:
         report = analyzer.analyze(issue_key)
 
         # 保存报告
-        output_file = output_dir / f"{issue_key}_analysis.md"
+        jira_dir = output_dir / "jira"
+        jira_dir.mkdir(parents=True, exist_ok=True)
+        output_file = jira_dir / f"{issue_key}.md"
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(report)
 
@@ -156,8 +158,8 @@ def main():
     print(f"\n📁 找到 {len(issue_files)} 个 issue")
 
     # 6. 创建输出目录
-    output_dir = Path('./test_results')
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path('./tests/outputs')
+    output_dir.mkdir(parents=True, exist_ok=True)
     print(f"   输出目录: {output_dir}")
 
     # 7. 分析所有 issue
@@ -186,7 +188,8 @@ def main():
             print(f"   - {issue}")
 
     # 生成汇总文件
-    summary_file = output_dir / "summary.md"
+    jira_dir = output_dir / "jira"
+    summary_file = jira_dir / "summary.md"
     with open(summary_file, 'w', encoding='utf-8') as f:
         f.write(f"# Jira 分析汇总报告\n\n")
         f.write(f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
@@ -200,7 +203,7 @@ def main():
         for issue_file in issue_files:
             issue_key = issue_file.stem
             status = "✓" if issue_key not in failed_issues else "✗"
-            report_file = f"{issue_key}_analysis.md"
+            report_file = f"jira/{issue_key}.md"
             f.write(f"- {status} [{issue_key}]({report_file})\n")
 
         if failed_issues:
