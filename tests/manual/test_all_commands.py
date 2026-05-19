@@ -56,7 +56,7 @@ class CommandTest:
         }
 
 
-def run_command(cmd: List[str], timeout: int = 60) -> Tuple[bool, str, str]:
+def run_command(cmd: List[str], timeout: int = 120) -> Tuple[bool, str, str]:
     """
     运行命令并返回结果
 

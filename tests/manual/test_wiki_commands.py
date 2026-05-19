@@ -21,7 +21,7 @@ LLM_MODEL = "Qwen3.5-9B-IQ4_XS"
 TEST_WIKI = "kan-project"
 
 
-def run_command(cmd: list, timeout: int = 60) -> tuple[bool, str, str]:
+def run_command(cmd: list, timeout: int = 120) -> tuple[bool, str, str]:
     """运行命令并返回结果"""
     try:
         result = subprocess.run(

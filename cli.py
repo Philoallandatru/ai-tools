@@ -26,6 +26,17 @@ from crawler.cli.decorators import handle_cli_errors, require_config
 from crawler.utils import parse_jira_metadata, parse_confluence_metadata
 
 
+def override_llm_config(cfg: dict, base_url: Optional[str], model: Optional[str]) -> None:
+    """覆盖配置中的 LLM 设置"""
+    if base_url or model:
+        if 'llm' not in cfg:
+            cfg['llm'] = {}
+        if base_url:
+            cfg['llm']['base_url'] = base_url
+        if model:
+            cfg['llm']['model'] = model
+
+
 @click.group()
 def cli():
     """Atlassian 数据爬取工具 - 从 Jira 和 Confluence 爬取数据到本地 markdown"""
@@ -302,13 +313,7 @@ def compile_wiki(wiki_name, files, batch_size, resume, all_wikis, config, llm_ba
             continue
 
         # 覆盖 LLM 配置（如果提供了命令行参数）
-        if llm_base_url or llm_model:
-            if 'llm' not in cfg:
-                cfg['llm'] = {}
-            if llm_base_url:
-                cfg['llm']['base_url'] = llm_base_url
-            if llm_model:
-                cfg['llm']['model'] = llm_model
+        override_llm_config(cfg, llm_base_url, llm_model)
 
         # 创建批量编译器
         compilation_config = wiki_config.get('compilation', {})
@@ -914,13 +919,7 @@ def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_pr
         wiki_mode = 'specify'
 
     # 覆盖 LLM 配置
-    if llm_base_url or llm_model:
-        if 'llm' not in cfg:
-            cfg['llm'] = {}
-        if llm_base_url:
-            cfg['llm']['base_url'] = llm_base_url
-        if llm_model:
-            cfg['llm']['model'] = llm_model
+    override_llm_config(cfg, llm_base_url, llm_model)
 
     service = AnalysisService(config=cfg)
     report_path = service.analyze_jira(

@@ -160,7 +160,8 @@ class WikiBatchCompiler:
             if 'api_key' in self.llm_config:
                 env['OPENAI_API_KEY'] = self.llm_config['api_key']
             elif 'OPENAI_API_KEY' not in env:
-                env['OPENAI_API_KEY'] = 'dummy'  # 本地 LLM 不需要真实 key
+                env['OPENAI_API_KEY'] = 'dummy'
+                print(f"  [INFO] 使用 dummy API key（本地 LLM 通常不需要真实 key）")
             if 'model' in self.llm_config:
                 env['OPENAI_MODEL'] = self.llm_config['model']
 
