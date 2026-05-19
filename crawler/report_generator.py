@@ -312,6 +312,7 @@ class ReportGenerator:
             from crawler.analyzers.risk_analyzer import RiskAnalyzer
             from crawler.analyzers.project_health_analyzer import ProjectHealthAnalyzer
             from crawler.analyzers.project_status_analyzer import ProjectStatusAnalyzer
+            from crawler.analyzers.team_collaboration_analyzer import TeamCollaborationAnalyzer
 
             # 创建报告分析器
             analyzer = ReportAnalyzer(config=self.config)
@@ -350,6 +351,14 @@ class ReportGenerator:
                     analyzers_config.get('risks', {})
                 )
                 analyzer.register_analyzer(risk_analyzer)
+
+            # 团队协作分析器
+            if analyzers_config.get('team_collaboration', {}).get('enabled', True):
+                collaboration_analyzer = TeamCollaborationAnalyzer(
+                    analyzer.llm_client,
+                    analyzers_config.get('team_collaboration', {})
+                )
+                analyzer.register_analyzer(collaboration_analyzer)
 
             # 项目状态分析器（依赖健康度分析结果，最后执行）
             if analyzers_config.get('project_status', {}).get('enabled', True):
@@ -495,6 +504,119 @@ class ReportGenerator:
                         for i, rec in enumerate(low_priority, 1):
                             lines.append(f"{i}. {rec.get('text', '')}")
                         lines.append("")
+
+            # 团队协作分析
+            collaboration_result = analysis.get('team_collaboration', {})
+            if collaboration_result.get('success'):
+                lines.append("## 👥 团队协作分析")
+                lines.append("")
+
+                # 整体状态
+                summary = collaboration_result.get('summary', {})
+                if summary:
+                    status_text = summary.get('status_text', '未知')
+                    status_emoji = {
+                        'excellent': '🟢',
+                        'good': '🟢',
+                        'fair': '🟡',
+                        'poor': '🔴'
+                    }.get(summary.get('overall_status'), '⚪')
+
+                    lines.append(f"**整体状态**: {status_emoji} {status_text}")
+                    lines.append("")
+
+                    # 关键指标
+                    metrics = summary.get('metrics', {})
+                    if metrics:
+                        gini = metrics.get('gini_coefficient', 0)
+                        lines.append(f"- **负载均衡度**: {gini:.3f} (基尼系数，越小越均衡)")
+                        lines.append(f"- **瓶颈成员数**: {metrics.get('bottleneck_count', 0)}")
+                        lines.append(f"- **协作较少成员数**: {metrics.get('isolated_count', 0)}")
+                        lines.append("")
+
+                # 负载分布
+                workload = collaboration_result.get('workload_distribution', {})
+                if workload:
+                    lines.append("### 负载分布")
+                    lines.append("")
+
+                    stats = workload.get('statistics', {})
+                    if stats:
+                        lines.append(f"- **团队规模**: {stats.get('total_members', 0)} 人")
+                        lines.append(f"- **平均负载**: {stats.get('mean', 0):.1f} 个任务/人")
+                        lines.append(f"- **标准差**: {stats.get('std_dev', 0):.1f}")
+                        lines.append("")
+
+                    # 负载过重成员
+                    overloaded = workload.get('overloaded', [])
+                    if overloaded:
+                        lines.append("#### 🔴 负载过重")
+                        lines.append("")
+                        for member in overloaded[:5]:
+                            name = member.get('name')
+                            workload_count = member.get('workload')
+                            percentage = member.get('percentage')
+                            lines.append(f"- **{name}**: {workload_count} 个任务 (超出平均 {percentage}%)")
+                        lines.append("")
+
+                    # 负载较轻成员
+                    underloaded = workload.get('underloaded', [])
+                    if underloaded:
+                        lines.append("#### 🟢 负载较轻")
+                        lines.append("")
+                        for member in underloaded[:5]:
+                            name = member.get('name')
+                            workload_count = member.get('workload')
+                            percentage = member.get('percentage')
+                            lines.append(f"- **{name}**: {workload_count} 个任务 (低于平均 {percentage}%)")
+                        lines.append("")
+
+                # 瓶颈识别
+                bottlenecks = collaboration_result.get('bottlenecks', {})
+                if bottlenecks and bottlenecks.get('has_bottlenecks'):
+                    lines.append("### ⚠️ 瓶颈成员")
+                    lines.append("")
+
+                    bottleneck_members = bottlenecks.get('bottleneck_members', [])
+                    for member in bottleneck_members[:5]:
+                        name = member.get('name')
+                        reasons = member.get('reasons', [])
+                        lines.append(f"- **{name}**: {', '.join(reasons)}")
+                    lines.append("")
+
+                # 协作网络
+                collaboration_network = collaboration_result.get('collaboration_network', {})
+                if collaboration_network:
+                    # 核心成员
+                    core_members = collaboration_network.get('core_members', [])
+                    if core_members:
+                        lines.append("### 🌟 核心成员")
+                        lines.append("")
+                        for member in core_members[:5]:
+                            name = member.get('name')
+                            connections = member.get('connections')
+                            lines.append(f"- **{name}**: 与 {connections} 名成员协作")
+                        lines.append("")
+
+                    # 协作较少成员
+                    isolated = collaboration_network.get('isolated_members', [])
+                    if isolated:
+                        lines.append("### 💡 协作较少成员")
+                        lines.append("")
+                        for member in isolated[:5]:
+                            name = member.get('name')
+                            connections = member.get('connections')
+                            lines.append(f"- **{name}**: 仅与 {connections} 名成员协作")
+                        lines.append("")
+
+                # 改进建议
+                recommendations = summary.get('recommendations', [])
+                if recommendations:
+                    lines.append("### 改进建议")
+                    lines.append("")
+                    for i, rec in enumerate(recommendations, 1):
+                        lines.append(f"{i}. {rec}")
+                    lines.append("")
 
             # 执行摘要
             summary_result = analysis.get('report_summary', {})
