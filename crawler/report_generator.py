@@ -310,12 +310,22 @@ class ReportGenerator:
             from crawler.analyzers.report_summary_analyzer import ReportSummaryAnalyzer
             from crawler.analyzers.key_insights_analyzer import KeyInsightsAnalyzer
             from crawler.analyzers.risk_analyzer import RiskAnalyzer
+            from crawler.analyzers.project_health_analyzer import ProjectHealthAnalyzer
+            from crawler.analyzers.project_status_analyzer import ProjectStatusAnalyzer
 
             # 创建报告分析器
             analyzer = ReportAnalyzer(config=self.config)
 
             # 注册分析器
             analyzers_config = report_analysis_config.get('analyzers', {})
+
+            # 项目健康度分析器（优先执行，其他分析器可能依赖其结果）
+            if analyzers_config.get('project_health', {}).get('enabled', True):
+                health_analyzer = ProjectHealthAnalyzer(
+                    analyzer.llm_client,
+                    analyzers_config.get('project_health', {})
+                )
+                analyzer.register_analyzer(health_analyzer)
 
             # 摘要分析器
             if analyzers_config.get('summary', {}).get('enabled', True):
@@ -340,6 +350,14 @@ class ReportGenerator:
                     analyzers_config.get('risks', {})
                 )
                 analyzer.register_analyzer(risk_analyzer)
+
+            # 项目状态分析器（依赖健康度分析结果，最后执行）
+            if analyzers_config.get('project_status', {}).get('enabled', True):
+                status_analyzer = ProjectStatusAnalyzer(
+                    analyzer.llm_client,
+                    analyzers_config.get('project_status', {})
+                )
+                analyzer.register_analyzer(status_analyzer)
 
             # 执行分析
             print("   🔍 开始报告分析...")
@@ -380,6 +398,104 @@ class ReportGenerator:
         # 分析结果部分（如果有）
         analysis = report.get('analysis', {})
         if analysis:
+            # 项目健康度（优先显示）
+            health_result = analysis.get('project_health', {})
+            if health_result.get('success'):
+                lines.append("## 🏥 项目健康度")
+                lines.append("")
+
+                total_score = health_result.get('total_score', 0)
+                health_level = health_result.get('health_level', '未知')
+                emoji = health_result.get('emoji', '⚪')
+
+                lines.append(f"**总体评分**: {emoji} {total_score}/100 ({health_level})")
+                lines.append("")
+
+                # 维度评分
+                dimension_scores = health_result.get('dimension_scores', {})
+                if dimension_scores:
+                    lines.append("### 维度评分")
+                    lines.append("")
+
+                    for dimension, data in dimension_scores.items():
+                        score = data.get('score', 0)
+                        max_score = data.get('max_score', 0)
+
+                        # 判断状态
+                        ratio = score / max_score if max_score > 0 else 0
+                        if ratio >= 0.8:
+                            status_emoji = "✅"
+                        elif ratio >= 0.6:
+                            status_emoji = "⚠️"
+                        else:
+                            status_emoji = "❌"
+
+                        dimension_name = {
+                            'progress': '进度健康度',
+                            'quality': '质量健康度',
+                            'resource': '资源健康度',
+                            'risk': '风险健康度'
+                        }.get(dimension, dimension)
+
+                        lines.append(f"- **{dimension_name}**: {score}/{max_score} {status_emoji}")
+
+                    lines.append("")
+
+            # 项目状态评估
+            status_result = analysis.get('project_status', {})
+            if status_result.get('success'):
+                lines.append("## 🎯 项目状态评估")
+                lines.append("")
+
+                # 状态描述
+                status_desc = status_result.get('status_description', '')
+                if status_desc:
+                    lines.append("### 当前状态")
+                    lines.append("")
+                    lines.append(status_desc)
+                    lines.append("")
+
+                # 主要问题
+                problems = status_result.get('main_problems', [])
+                if problems:
+                    lines.append("### 主要问题")
+                    lines.append("")
+                    for i, problem in enumerate(problems, 1):
+                        lines.append(f"{i}. {problem}")
+                    lines.append("")
+
+                # 行动建议
+                recommendations = status_result.get('action_recommendations', [])
+                if recommendations:
+                    lines.append("### 行动建议")
+                    lines.append("")
+
+                    # 按优先级分组
+                    high_priority = [r for r in recommendations if r.get('priority') == 'high']
+                    medium_priority = [r for r in recommendations if r.get('priority') == 'medium']
+                    low_priority = [r for r in recommendations if r.get('priority') == 'low']
+
+                    if high_priority:
+                        lines.append("#### 🔴 高优先级")
+                        lines.append("")
+                        for i, rec in enumerate(high_priority, 1):
+                            lines.append(f"{i}. {rec.get('text', '')}")
+                        lines.append("")
+
+                    if medium_priority:
+                        lines.append("#### 🟡 中优先级")
+                        lines.append("")
+                        for i, rec in enumerate(medium_priority, 1):
+                            lines.append(f"{i}. {rec.get('text', '')}")
+                        lines.append("")
+
+                    if low_priority:
+                        lines.append("#### 🟢 低优先级")
+                        lines.append("")
+                        for i, rec in enumerate(low_priority, 1):
+                            lines.append(f"{i}. {rec.get('text', '')}")
+                        lines.append("")
+
             # 执行摘要
             summary_result = analysis.get('report_summary', {})
             if summary_result.get('success') and summary_result.get('summary'):
