@@ -12,6 +12,14 @@ from collections import defaultdict
 class ReportGenerator:
     """报告生成器 - 生成周报和日报"""
 
+    # 健康度维度映射（中文名称 -> 英文键名）
+    DIMENSION_MAPPING = [
+        ('进度', 'progress'),
+        ('质量', 'quality'),
+        ('资源', 'resource'),
+        ('风险', 'risk')
+    ]
+
     def __init__(self, source_dir: str = './sources', config: Optional[Dict[str, Any]] = None):
         """
         初始化报告生成器
@@ -740,7 +748,7 @@ class ReportGenerator:
                     lines.append(f"| 总分 | {current:.1f} | {previous:.1f} | {change:+.1f} | {self._format_trend_indicator(total.get('trend'))} |")
 
                     dimensions = health_trends.get('dimensions', {})
-                    for dim_name, dim_key in [('进度', 'progress'), ('质量', 'quality'), ('资源', 'resource'), ('风险', 'risk')]:
+                    for dim_name, dim_key in self.DIMENSION_MAPPING:
                         dim_data = dimensions.get(dim_key, {})
                         dim_current = dim_data.get('current', 0)
                         dim_previous = dim_data.get('previous', 0)

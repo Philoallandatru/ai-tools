@@ -1,6 +1,7 @@
 """Service layer for report generation and persistence."""
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -8,6 +9,8 @@ from typing import Any, Dict, Optional
 
 from crawler.config import ConfigManager
 from crawler.report_generator import ReportGenerator
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -61,7 +64,7 @@ class ReportService:
             history_manager = MetricsHistoryManager()
             history_manager.save_metrics(report)
         except Exception as e:
-            print(f"[WARNING] 保存指标历史失败: {e}")
+            logger.warning(f"保存指标历史失败: {e}", exc_info=True)
 
         return ReportResult(
             report=report,

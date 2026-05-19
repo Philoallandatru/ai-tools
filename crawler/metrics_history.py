@@ -4,9 +4,12 @@
 
 import os
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class MetricsHistoryManager:
@@ -28,8 +31,14 @@ class MetricsHistoryManager:
             try:
                 with open(self.history_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
-            except (json.JSONDecodeError, IOError) as e:
-                print(f"[WARNING] 加载历史数据失败: {e}，使用空历史")
+            except json.JSONDecodeError as e:
+                logger.warning(f"历史数据文件格式错误: {e}，使用空历史", exc_info=True)
+                return self._create_empty_history()
+            except IOError as e:
+                logger.error(f"读取历史数据文件失败: {e}，使用空历史", exc_info=True)
+                return self._create_empty_history()
+            except Exception as e:
+                logger.error(f"加载历史数据时发生未知错误: {e}，使用空历史", exc_info=True)
                 return self._create_empty_history()
         return self._create_empty_history()
 
@@ -47,6 +56,19 @@ class MetricsHistoryManager:
         self.history_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.history_file, 'w', encoding='utf-8') as f:
             json.dump(self.history, f, indent=2, ensure_ascii=False)
+
+    def _count_items(self, data_dict: Dict[str, Any]) -> Dict[str, int]:
+        """
+        统计字典中每个键对应的列表长度
+
+        Args:
+            data_dict: 包含列表值的字典
+
+        Returns:
+            包含计数的字典
+        """
+        return {key: len(val) if isinstance(val, list) else 0
+                for key, val in data_dict.items()}
 
     def extract_metrics(self, report_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -77,18 +99,15 @@ class MetricsHistoryManager:
 
         # 统计状态分布
         by_status = jira_data.get('by_status', {})
-        for status, issues in by_status.items():
-            jira_metrics['by_status_counts'][status] = len(issues) if isinstance(issues, list) else 0
+        jira_metrics['by_status_counts'] = self._count_items(by_status)
 
         # 统计优先级分布
         by_priority = jira_data.get('by_priority', {})
-        for priority, issues in by_priority.items():
-            jira_metrics['by_priority_counts'][priority] = len(issues) if isinstance(issues, list) else 0
+        jira_metrics['by_priority_counts'] = self._count_items(by_priority)
 
         # 统计类型分布
         by_type = jira_data.get('by_type', {})
-        for issue_type, issues in by_type.items():
-            jira_metrics['by_type_counts'][issue_type] = len(issues) if isinstance(issues, list) else 0
+        jira_metrics['by_type_counts'] = self._count_items(by_type)
 
         # 提取健康度指标
         analysis = report_data.get('analysis', {})
@@ -178,8 +197,10 @@ class MetricsHistoryManager:
             # 更新或添加
             if existing_index is not None:
                 self.history['metrics'][existing_index] = metrics_record
+                logger.info(f"更新已存在的指标记录: {report_id}")
             else:
                 self.history['metrics'].append(metrics_record)
+                logger.info(f"添加新的指标记录: {report_id}")
 
             # 按时间戳排序（最新的在后面）
             self.history['metrics'].sort(key=lambda x: x.get('timestamp', ''))
@@ -187,8 +208,15 @@ class MetricsHistoryManager:
             # 保存到文件
             self._save_history()
 
+        except KeyError as e:
+            logger.error(f"提取指标时缺少必需字段: {e}", exc_info=True)
+            raise
+        except IOError as e:
+            logger.error(f"保存指标历史文件失败: {e}", exc_info=True)
+            raise
         except Exception as e:
-            print(f"[ERROR] 保存指标历史失败: {e}")
+            logger.error(f"保存指标历史时发生未知错误: {e}", exc_info=True)
+            raise
 
     def get_last_n_weeks(self, n: int = 4, report_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """
@@ -228,7 +256,7 @@ class MetricsHistoryManager:
             self.history['metrics'] = metrics[-keep_weeks:]
             self._save_history()
             deleted_count = original_count - keep_weeks
-            print(f"[INFO] 清理了 {deleted_count} 条旧指标记录")
+            logger.info(f"清理了 {deleted_count} 条旧指标记录（保留最近 {keep_weeks} 周）")
             return deleted_count
 
         return 0
