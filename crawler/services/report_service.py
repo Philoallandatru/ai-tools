@@ -55,6 +55,14 @@ class ReportService:
             with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2, ensure_ascii=False)
 
+        # Save metrics to history for trend analysis
+        try:
+            from crawler.metrics_history import MetricsHistoryManager
+            history_manager = MetricsHistoryManager()
+            history_manager.save_metrics(report)
+        except Exception as e:
+            print(f"[WARNING] 保存指标历史失败: {e}")
+
         return ReportResult(
             report=report,
             output_file=output_file,

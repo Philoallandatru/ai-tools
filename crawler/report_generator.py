@@ -369,13 +369,22 @@ class ReportGenerator:
                 )
                 analyzer.register_analyzer(status_analyzer)
 
-            # 行动项清单分析器（依赖其他分析器的结果，最后执行）
+            # 行动项清单分析器（依赖其他分析器的结果）
             if analyzers_config.get('action_items', {}).get('enabled', True):
                 action_items_analyzer = ActionItemsAnalyzer(
                     analyzer.llm_client,
                     analyzers_config.get('action_items', {})
                 )
                 analyzer.register_analyzer(action_items_analyzer)
+
+            # 趋势分析器（依赖历史数据，最后执行）
+            if analyzers_config.get('trend_analysis', {}).get('enabled', True):
+                from crawler.analyzers.trend_analyzer import TrendAnalyzer
+                trend_analyzer = TrendAnalyzer(
+                    analyzer.llm_client,
+                    analyzers_config.get('trend_analysis', {})
+                )
+                analyzer.register_analyzer(trend_analyzer)
 
             # 执行分析
             print("   🔍 开始报告分析...")
@@ -697,6 +706,140 @@ class ReportGenerator:
                             lines.append(f"**建议责任人**: {item['suggested_owner']}")
                             lines.append("")
 
+            # 趋势分析
+            trend_result = analysis.get('trend_analysis', {})
+            if trend_result.get('success'):
+                lines.append("## 📈 趋势分析")
+                lines.append("")
+
+                data_points = trend_result.get('data_points', 0)
+                time_range = trend_result.get('time_range', {})
+                lines.append(f"**数据周期**: {data_points} 周（{time_range.get('start', '')} 至 {time_range.get('end', '')}）")
+                lines.append("")
+
+                trends = trend_result.get('trends', {})
+
+                # 健康度趋势
+                health_trends = trends.get('health', {})
+                if health_trends:
+                    lines.append("### 项目健康度趋势")
+                    lines.append("")
+
+                    total = health_trends.get('total', {})
+                    trend_text = self._format_trend_text(total.get('trend', 'stable'))
+                    change = total.get('change', 0)
+                    current = total.get('current', 0)
+                    previous = total.get('previous', 0)
+
+                    lines.append(f"**总体趋势**: {trend_text} ({change:+.1f}分)")
+                    lines.append("")
+
+                    # 维度对比表格
+                    lines.append("| 维度 | 当前 | 初始 | 变化 | 趋势 |")
+                    lines.append("|------|------|------|------|------|")
+                    lines.append(f"| 总分 | {current:.1f} | {previous:.1f} | {change:+.1f} | {self._format_trend_indicator(total.get('trend'))} |")
+
+                    dimensions = health_trends.get('dimensions', {})
+                    for dim_name, dim_key in [('进度', 'progress'), ('质量', 'quality'), ('资源', 'resource'), ('风险', 'risk')]:
+                        dim_data = dimensions.get(dim_key, {})
+                        dim_current = dim_data.get('current', 0)
+                        dim_previous = dim_data.get('previous', 0)
+                        dim_change = dim_data.get('change', 0)
+                        dim_trend = dim_data.get('trend', 'stable')
+                        lines.append(f"| {dim_name} | {dim_current:.1f} | {dim_previous:.1f} | {dim_change:+.1f} | {self._format_trend_indicator(dim_trend)} |")
+
+                    lines.append("")
+
+                    # 周度数据
+                    weekly_data = total.get('weekly_data', [])
+                    if weekly_data:
+                        data_str = ' → '.join([f"{v:.1f}" for v in weekly_data])
+                        lines.append(f"**周度数据**: {data_str}")
+                        lines.append("")
+
+                # 团队效率趋势
+                team_trends = trends.get('team', {})
+                if team_trends:
+                    lines.append("### 团队效率趋势")
+                    lines.append("")
+
+                    load_balance = team_trends.get('load_balance', {})
+                    if load_balance:
+                        trend_text = self._format_trend_text(load_balance.get('trend', 'stable'))
+                        current = load_balance.get('current', 0)
+                        previous = load_balance.get('previous', 0)
+                        change = load_balance.get('change', 0)
+                        change_pct = abs(change / previous * 100) if previous != 0 else 0
+                        lines.append(f"**负载均衡**: {trend_text} (基尼系数: {previous:.3f} → {current:.3f}, {change:+.3f})")
+                        lines.append("")
+
+                    bottlenecks = team_trends.get('bottlenecks', {})
+                    if bottlenecks:
+                        current = bottlenecks.get('current', 0)
+                        previous = bottlenecks.get('previous', 0)
+                        lines.append(f"- 瓶颈成员数: {previous} → {current}")
+
+                    overloaded = team_trends.get('overloaded', {})
+                    if overloaded:
+                        current = overloaded.get('current', 0)
+                        previous = overloaded.get('previous', 0)
+                        lines.append(f"- 负载过重成员: {previous} → {current}")
+
+                    team_size = team_trends.get('team_size', {})
+                    if team_size:
+                        current = team_size.get('current', 0)
+                        previous = team_size.get('previous', 0)
+                        lines.append(f"- 团队规模: {previous} → {current}")
+
+                    lines.append("")
+
+                # Issues活动趋势
+                issues_trends = trends.get('issues', {})
+                if issues_trends:
+                    lines.append("### Issues 活动趋势")
+                    lines.append("")
+
+                    total = issues_trends.get('total', {})
+                    trend_text = self._format_trend_text(total.get('trend', 'stable'))
+                    avg = total.get('average', 0)
+                    current = total.get('current', 0)
+                    previous = total.get('previous', 0)
+
+                    lines.append(f"**总量趋势**: {trend_text} (平均 {avg:.1f} issues/周)")
+                    lines.append("")
+
+                    new_issues = issues_trends.get('new', {})
+                    if new_issues:
+                        new_avg = new_issues.get('average', 0)
+                        new_trend = self._format_trend_text(new_issues.get('trend', 'stable'))
+                        lines.append(f"- 新增: {new_avg:.1f}/周 ({new_trend})")
+
+                    updated_issues = issues_trends.get('updated', {})
+                    if updated_issues:
+                        updated_avg = updated_issues.get('average', 0)
+                        updated_trend = self._format_trend_text(updated_issues.get('trend', 'stable'))
+                        lines.append(f"- 更新: {updated_avg:.1f}/周 ({updated_trend})")
+
+                    lines.append("")
+
+                # 关键洞察
+                insights = trend_result.get('insights', [])
+                if insights:
+                    lines.append("### 关键洞察")
+                    lines.append("")
+                    for i, insight in enumerate(insights, 1):
+                        lines.append(f"{i}. {insight}")
+                    lines.append("")
+
+                # 建议
+                recommendations = trend_result.get('recommendations', [])
+                if recommendations:
+                    lines.append("### 建议")
+                    lines.append("")
+                    for i, rec in enumerate(recommendations, 1):
+                        lines.append(f"{i}. {rec}")
+                    lines.append("")
+
             # 执行摘要
             summary_result = analysis.get('report_summary', {})
             if summary_result.get('success') and summary_result.get('summary'):
@@ -899,6 +1042,30 @@ class ReportGenerator:
         lines.append("*本报告由 AI Tools 自动生成*")
 
         return '\n'.join(lines)
+
+    def _format_trend_text(self, trend: str) -> str:
+        """格式化趋势文本"""
+        trend_map = {
+            'improving': '改善中',
+            'declining': '下降中',
+            'stable': '稳定',
+            'increasing': '上升',
+            'decreasing': '下降',
+            'insufficient_data': '数据不足'
+        }
+        return trend_map.get(trend, trend)
+
+    def _format_trend_indicator(self, trend: str) -> str:
+        """格式化趋势指示符"""
+        indicator_map = {
+            'improving': '↗',
+            'declining': '↘',
+            'stable': '→',
+            'increasing': '↗',
+            'decreasing': '↘',
+            'insufficient_data': '?'
+        }
+        return indicator_map.get(trend, '→')
 
     def _get_group_name(self, group_by: str) -> str:
         """获取分组名称"""
