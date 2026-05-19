@@ -27,7 +27,8 @@ class ReportAnalyzer(UnifiedAnalyzer):
             llm = llm_client
         else:
             llm_config = dict(self.config.get('llm', {}))
-            llm_config.update(self.report_config.get('llm', {}))
+            report_llm_config = self.report_config.get('llm') or {}
+            llm_config.update(report_llm_config)
             llm = LLMClientFactory.create_from_config(llm_config)
 
         super().__init__(llm)
