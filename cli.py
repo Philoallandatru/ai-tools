@@ -956,10 +956,27 @@ def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_pr
 @click.option('--dry-run', is_flag=True, help='预览分析结果')
 @handle_cli_errors
 def analyze_doc(doc_path, config, output, dry_run):
-    """分析文档"""
+    """分析文档（仅支持 Markdown 文件）"""
     from crawler.doc_analyzer import DocumentAnalyzer
+    from pathlib import Path
 
     output_cli = CLIOutput()
+
+    # 验证文件类型
+    doc_file = Path(doc_path)
+    if not doc_file.exists():
+        output_cli.error(f"文件不存在: {doc_path}")
+        return
+
+    if doc_file.suffix.lower() not in ['.md', '.markdown']:
+        output_cli.error(f"不支持的文件类型: {doc_file.suffix}")
+        output_cli.info("analyze-doc 命令仅支持 Markdown 文件 (.md, .markdown)")
+        output_cli.info("")
+        output_cli.info("如果要分析 PDF 文件，请使用以下工作流：")
+        output_cli.info("  1. 转换 PDF: python cli.py convert-pdf input.pdf -o output.md")
+        output_cli.info("  2. 拆分文档: python cli.py split-doc output.md -o output_dir/")
+        output_cli.info("  3. 分析文档: python cli.py analyze-doc output_dir/section_01.md")
+        return
 
     if dry_run:
         output_cli.info(f"将分析文档: {doc_path}")

@@ -6,9 +6,20 @@
 """
 
 import re
+import sys
 from pathlib import Path
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
+
+
+def safe_print(text: str):
+    """安全打印，处理 Windows 控制台 GBK 编码问题"""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        # Windows 控制台使用 GBK 编码，无法显示某些 Unicode 字符
+        # 将无法编码的字符替换为 '?'
+        print(text.encode(sys.stdout.encoding, errors='replace').decode(sys.stdout.encoding))
 
 
 @dataclass
@@ -273,23 +284,36 @@ section: {main_title}
         Returns:
             生成的文件路径列表
         """
+        # 验证文件类型
+        if input_file.suffix.lower() not in ['.md', '.markdown']:
+            raise ValueError(
+                f"不支持的文件类型: {input_file.suffix}\n"
+                f"DocumentSplitter 仅支持 Markdown 文件 (.md, .markdown)"
+            )
+
         # 读取文件
-        with open(input_file, 'r', encoding='utf-8') as f:
-            content = f.read()
+        try:
+            with open(input_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except UnicodeDecodeError as e:
+            raise ValueError(
+                f"无法读取文件 {input_file.name}：文件编码不是 UTF-8\n"
+                f"错误详情: {e}"
+            )
 
         # 拆分文档
         results = self.split_document(content, input_file.name)
 
-        print(f"\n📄 拆分文档: {input_file.name}")
-        print(f"   原文档大小: {len(content):,} 字符")
-        print(f"   拆分为: {len(results)} 个文档")
-        print(f"   拆分层级: {'#' * self.split_level} (level {self.split_level})")
-        print(f"   最大字符数: {self.max_chars:,}")
+        safe_print(f"\n📄 拆分文档: {input_file.name}")
+        safe_print(f"   原文档大小: {len(content):,} 字符")
+        safe_print(f"   拆分为: {len(results)} 个文档")
+        safe_print(f"   拆分层级: {'#' * self.split_level} (level {self.split_level})")
+        safe_print(f"   最大字符数: {self.max_chars:,}")
 
         if dry_run:
-            print("\n🔍 预览拆分结果 (dry-run):")
+            safe_print("\n🔍 预览拆分结果 (dry-run):")
             for filename, content in results:
-                print(f"   - {filename}: {len(content):,} 字符")
+                safe_print(f"   - {filename}: {len(content):,} 字符")
             return []
 
         # 创建输出目录
@@ -297,13 +321,13 @@ section: {main_title}
 
         # 保存文件
         output_files = []
-        print("\n💾 保存文件:")
+        safe_print("\n💾 保存文件:")
         for filename, content in results:
             output_path = output_dir / filename
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             output_files.append(output_path)
-            print(f"   ✓ {output_path}")
+            safe_print(f"   ✓ {output_path}")
 
-        print(f"\n✅ 完成! 生成 {len(output_files)} 个文件")
+        safe_print(f"\n✅ 完成! 生成 {len(output_files)} 个文件")
         return output_files
