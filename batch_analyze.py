@@ -57,7 +57,9 @@ def batch_analyze_documents(input_dir: str, config_path: str, max_docs: int = No
     results = []
 
     for i, md_file in enumerate(md_files, 1):
-        print(f"\n[{i}/{total}] 分析: {md_file.name}")
+        # 安全处理文件名中的特殊字符（Windows 控制台兼容）
+        safe_filename = md_file.name.encode('ascii', errors='replace').decode('ascii')
+        print(f"\n[{i}/{total}] 分析: {safe_filename}")
         print("-" * 80)
 
         try:

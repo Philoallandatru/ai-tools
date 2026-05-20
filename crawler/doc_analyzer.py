@@ -23,6 +23,21 @@ from crawler.llm_client import BaseLLMClient, LLMClientFactory
 logger = logging.getLogger(__name__)
 
 
+def safe_print(text: str):
+    """
+    安全打印文本，处理 Windows 控制台编码问题
+
+    Args:
+        text: 要打印的文本
+    """
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        # 如果遇到编码错误，替换无法编码的字符
+        safe_text = text.encode(sys.stdout.encoding or 'utf-8', errors='replace').decode(sys.stdout.encoding or 'utf-8')
+        print(safe_text)
+
+
 @dataclass
 class CodeSnippet:
     """代码片段"""
@@ -124,13 +139,13 @@ class DocumentAnalyzer:
         if dry_run:
             print(f"\n[预览] 预览模式 - 将处理以下小节:")
             for i, section in enumerate(sections, 1):
-                print(f"   {i}. {section.title} ({len(section.content)} 字符)")
+                safe_print(f"   {i}. {section.title} ({len(section.content)} 字符)")
             return ""
 
         # 2. 分析每个小节
         results = []
         for i, section in enumerate(sections, 1):
-            print(f"\n   [分析] 第 {i}/{len(sections)} 节: {section.title}")
+            safe_print(f"\n   [分析] 第 {i}/{len(sections)} 节: {section.title}")
 
             try:
                 # 提取关键词
