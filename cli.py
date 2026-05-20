@@ -951,7 +951,7 @@ def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_pr
 
 @cli.command()
 @click.argument('doc_path', type=click.Path(exists=True))
-@click.option('--config', default='configs/doc_analysis_config.yaml', help='配置文件路径')
+@click.option('--config', default='config.yaml', help='配置文件路径')
 @click.option('--output', help='输出文件路径')
 @click.option('--dry-run', is_flag=True, help='预览分析结果')
 @handle_cli_errors

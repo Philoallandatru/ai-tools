@@ -173,11 +173,11 @@ def generate_summary_report(results: list, total_time: float, input_dir: str):
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("用法: python batch_analyze.py <input_dir> [config_path] [max_docs]")
-        print("示例: python batch_analyze.py test_output/nvme_full_split configs/doc_analysis_config.yaml 10")
+        print("示例: python batch_analyze.py test_output/nvme_full_split config.yaml 10")
         sys.exit(1)
 
     input_dir = sys.argv[1]
-    config_path = sys.argv[2] if len(sys.argv) > 2 else "configs/doc_analysis_config.yaml"
+    config_path = sys.argv[2] if len(sys.argv) > 2 else "config.yaml"
     max_docs = int(sys.argv[3]) if len(sys.argv) > 3 else None
 
     batch_analyze_documents(input_dir, config_path, max_docs)

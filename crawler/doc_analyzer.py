@@ -68,12 +68,12 @@ class AnalysisResult:
 class DocumentAnalyzer:
     """文档分析器"""
 
-    def __init__(self, config_path: str = "configs/doc_analysis_config.yaml"):
+    def __init__(self, config_path: str = "config.yaml"):
         """
         初始化分析器
 
         Args:
-            config_path: 配置文件路径
+            config_path: 配置文件路径（默认使用主配置文件）
         """
         self.config_path = Path(config_path)
         self.config = self._load_config()
@@ -85,16 +85,17 @@ class DocumentAnalyzer:
         )
 
         # 初始化两个搜索器：一个用于代码，一个用于文档
-        self.code_searcher = ContentSearcher(source_dir='.')  # 搜索整个项目
+        code_base_dir = self.config['retrieval']['code'].get('base_dir', '.')
+        self.code_searcher = ContentSearcher(source_dir=code_base_dir)
         docs_path = self.config['retrieval']['docs']['path']
-        self.doc_searcher = ContentSearcher(source_dir=docs_path)  # 搜索文档目录
+        self.doc_searcher = ContentSearcher(source_dir=docs_path)
 
-        # 初始化 LLM 客户端
+        # 初始化 LLM 客户端（使用文档分析专用配置）
         llm_config = self.config['llm']
         self.llm_client = LLMClientFactory.create_from_config(llm_config)
 
         # 初始化 Vision LLM 客户端（如果启用）
-        vision_config = self.config.get('vision_llm', {})
+        vision_config = self.config.get('vision', {})
         if vision_config.get('enabled', False):
             self.vision_client = LLMClientFactory.create_from_config(vision_config)
         else:
@@ -106,7 +107,28 @@ class DocumentAnalyzer:
             raise FileNotFoundError(f"配置文件不存在: {self.config_path}")
 
         with open(self.config_path, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
+            full_config = yaml.safe_load(f)
+
+        # 如果是主配置文件，提取 doc_analysis 部分
+        if 'doc_analysis' in full_config:
+            doc_config = full_config['doc_analysis'].copy()
+
+            # 合并 LLM 配置：优先使用 doc_analysis 专用配置
+            if 'llm' in full_config:
+                base_llm = full_config['llm'].copy()
+                # 如果有 doc_analysis 专用 LLM 配置，覆盖基础配置
+                if 'doc_analysis' in base_llm:
+                    base_llm.update(base_llm.pop('doc_analysis'))
+                doc_config['llm'] = base_llm
+
+            # 合并 Vision LLM 配置
+            if 'llm' in full_config and 'vision' in full_config['llm']:
+                doc_config['vision'] = full_config['llm']['vision']
+
+            return doc_config
+
+        # 兼容旧的独立配置文件格式
+        return full_config
 
     def analyze_document(
         self,

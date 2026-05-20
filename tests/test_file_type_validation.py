@@ -24,7 +24,7 @@ class TestFileTypeValidation:
         result = runner.invoke(cli, [
             'analyze-doc',
             str(pdf_file),
-            '--config', 'configs/doc_analysis_config.yaml'
+            '--config', 'config.yaml'
         ])
 
         # 应该失败（但不是崩溃）
@@ -43,7 +43,7 @@ class TestFileTypeValidation:
         result = runner.invoke(cli, [
             'analyze-doc',
             str(md_file),
-            '--config', 'configs/doc_analysis_config.yaml',
+            '--config', 'config.yaml',
             '--dry-run'  # 使用 dry-run 避免实际调用 LLM
         ])
 
@@ -60,7 +60,7 @@ class TestFileTypeValidation:
         result = runner.invoke(cli, [
             'analyze-doc',
             str(md_file),
-            '--config', 'configs/doc_analysis_config.yaml',
+            '--config', 'config.yaml',
             '--dry-run'
         ])
 

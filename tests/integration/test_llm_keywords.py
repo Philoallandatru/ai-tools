@@ -20,7 +20,7 @@ def test_llm_keyword_extraction():
     print("=" * 80)
 
     # 创建分析器
-    analyzer = DocumentAnalyzer('configs/doc_analysis_config.yaml')
+    analyzer = DocumentAnalyzer('config.yaml')
 
     # 测试文本
     test_texts = [
@@ -102,7 +102,7 @@ def test_full_analysis_with_llm_keywords():
     print("=" * 80)
 
     # 创建分析器
-    analyzer = DocumentAnalyzer('configs/doc_analysis_config.yaml')
+    analyzer = DocumentAnalyzer('config.yaml')
 
     # 替换 searcher 为指向 mock-codebase 的搜索器
     analyzer.searcher = ContentSearcher(source_dir='./mock-codebase')

@@ -64,7 +64,7 @@ def test_analyzer_with_mock_codebase():
     print("=" * 80)
 
     # 创建分析器
-    analyzer = DocumentAnalyzer('configs/doc_analysis_config.yaml')
+    analyzer = DocumentAnalyzer('config.yaml')
 
     # 替换 searcher 为指向 mock-codebase 的搜索器
     analyzer.searcher = ContentSearcher(source_dir='./mock-codebase')

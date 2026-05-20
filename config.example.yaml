@@ -75,6 +75,25 @@ llm:
   model: "qwen3.5-4b"             # 模型名称
   max_tokens: 8000  # 推理模型需要更大的 token 限制（推理过程 + 最终答案）
   temperature: 0.7
+  timeout: 600  # API 调用超时时间（秒）
+
+  # 文档分析专用 LLM 配置（覆盖上述默认值）
+  doc_analysis:
+    provider: llamacpp
+    base_url: http://127.0.0.1:8080
+    model: Qwen3.5-9B-IQ4_XS.gguf
+    timeout: 120  # 文档分析超时时间（秒）
+    temperature: 0.3
+
+  # Vision LLM 配置（用于图片分析）
+  vision:
+    enabled: true
+    provider: llamacpp
+    base_url: http://127.0.0.1:9090
+    model: Qwen3-VL-4B-Instruct-Q4_K_M.gguf
+    timeout: 120  # 图片分析超时时间（秒）
+    temperature: 0.3
+    max_tokens: 1000
 
 # 报告配置
 reports:
@@ -227,3 +246,129 @@ logging:
 #   - enabled: 是否启用自动同步
 #   - sync_time: 每日同步时间（24小时制）
 #   - timezone: 时区设置
+
+# ============================================================================
+# 文档分析配置
+# ============================================================================
+doc_analysis:
+  # 文档切分配置
+  splitting:
+    split_level: 2              # 按 H2 标题切分
+    max_chars: 5000             # 单个小节最大字符数
+
+  # 检索配置
+  retrieval:
+    # 代码库检索
+    code:
+      enabled: true
+      base_dir: .               # 代码库根目录
+      patterns:                 # 文件类型
+        - "**/*.py"
+        - "**/*.js"
+        - "**/*.ts"
+      exclude_dirs:             # 排除目录
+        - ".venv"
+        - "node_modules"
+        - "__pycache__"
+        - ".git"
+      context_lines: 3          # 匹配行的前后上下文行数
+
+    # 需求文档检索
+    docs:
+      enabled: true
+      path: "sources/"          # 需求文档目录
+      patterns:
+        - "*.md"
+      exclude_files:            # 排除文件
+        - "README.md"
+      context_lines: 5
+
+    # 检索策略
+    search:
+      max_results: 5            # 每个来源最多返回 N 个结果
+      min_match_length: 3       # 最小匹配关键词长度
+
+  # Prompt 模板
+  prompts:
+    system: |
+      你是一个需求分析专家。你的任务是分析客户需求文档的内容，判断是否可以形成具体的需求或测试用例。
+
+    # 关键词提取 prompt
+    keyword_extraction: |
+      请从以下文档内容中提取适合代码搜索的关键词。
+
+      要求：
+      1. **优先提取具体的技术术语**：类名、函数名、API 名称、协议名称、组件名称
+         - 例如：NVMeController, RDMATransport, Queue Pair, CC.EN, CSTS.RDY
+         - 而不是：架构、配置、系统、功能等通用词汇
+      2. 保留完整的技术术语（如 "NVMe Reset" 而不是拆分成 "NVMe" 和 "Reset"）
+      3. 提取大写缩写词和专有名词（如 RDMA, TCP, NVMe, Queue Pair）
+      4. 提取可能出现在代码中的标识符（如 reset, connect, disconnect, send_command）
+      5. 中英文关键词都要提取，但优先英文技术术语
+      6. 每个关键词 2-30 个字符
+      7. 提取 8-15 个最重要的关键词
+      8. 只返回关键词列表，每行一个，不要序号和其他解释
+
+      文档内容：
+      {text}
+
+      关键词：
+
+    user_template: |
+      ## 当前文档小节
+
+      {section_content}
+
+      ## 相关代码参考
+
+      {code_context}
+
+      ## 相关需求文档参考
+
+      {docs_context}
+
+      ## 分析任务
+
+      请深入分析上述文档小节内容，提供以下分析：
+
+      ### 1. 内容分类
+      判断该小节属于以下哪种类型：
+      - **功能需求**：描述具体的功能、行为、接口
+      - **性能需求**：描述性能指标、时间要求、资源限制
+      - **约束条件**：描述必须遵守的规则、标准、协议
+      - **概念定义**：仅定义术语、概念、架构
+      - **示例说明**：提供使用示例、场景描述
+      - **其他**：说明具体类型
+
+      ### 2. 可测试性分析
+      - **是否可形成测试用例**：是/否
+      - **如果可以**：列出 2-3 个具体的测试场景（包括输入、预期输出、验证点）
+      - **如果不可以**：说明缺少哪些信息（如：缺少具体数值、缺少错误处理、缺少边界条件等）
+
+      ### 3. 实现建议
+      结合相关代码和文档参考，给出实现建议：
+      - **如果代码已实现**：指出对应的代码位置和实现方式
+      - **如果代码未实现**：建议实现方法和需要注意的点
+      - **如果有差异**：指出文档与代码的不一致之处
+
+      ### 4. 关键技术点
+      提取该小节涉及的关键技术点（如：关键API、重要参数、状态转换、错误码等）
+
+      请以清晰的 Markdown 格式输出分析结果，使用标题、列表、代码块等格式增强可读性。
+
+    # 图片分析 prompt
+    image_analysis: |
+      请详细描述这张图片的内容。如果图片包含架构图、流程图、状态图等技术图表，请说明：
+      1. 图表的类型和主要目的
+      2. 关键组件或模块
+      3. 组件之间的关系和数据流
+      4. 任何重要的技术细节或标注
+
+      请以 Markdown 格式输出分析结果。
+
+  # 报告配置
+  report:
+    output_dir: "reports/"
+    filename_template: "doc_analysis_{source_filename}_{timestamp}.md"
+    include_toc: true           # 是否包含目录
+    include_summary: true       # 是否包含总结
