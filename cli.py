@@ -655,6 +655,41 @@ def wiki_init(wiki_name, display_name, description, jira_projects, keywords, con
 
 
 @cli.command()
+@click.argument('pdf_file', type=click.Path(exists=True))
+@click.option('--output', '-o', help='输出Markdown文件路径')
+@click.option('--start-page', default=0, help='起始页码（从0开始）')
+@click.option('--end-page', type=int, help='结束页码（不包含）')
+@handle_cli_errors
+def convert_pdf(pdf_file, output, start_page, end_page):
+    """将PDF转换为Markdown格式"""
+    from crawler.pdf_converter import PDFConverter
+
+    output_cli = CLIOutput()
+    converter = PDFConverter()
+
+    # 获取PDF信息
+    info = converter.get_pdf_info(pdf_file)
+    output_cli.header(f"PDF信息")
+    output_cli.key_value("文件名", info['filename'])
+    output_cli.key_value("总页数", info['total_pages'])
+    output_cli.key_value("文件大小", f"{info['file_size_mb']:.2f} MB")
+    if info['metadata'].get('title'):
+        output_cli.key_value("标题", info['metadata']['title'])
+
+    # 确定输出路径
+    if not output:
+        pdf_path = Path(pdf_file)
+        output = f"./test_output/{pdf_path.stem}_pages_{start_page+1}-{end_page or info['total_pages']}.md"
+
+    # 转换
+    output_cli.info(f"\n开始转换...")
+    markdown = converter.convert_to_markdown(pdf_file, output, start_page, end_page)
+
+    output_cli.success(f"转换完成: {output}")
+    output_cli.key_value("内容长度", f"{len(markdown):,} 字符")
+
+
+@cli.command()
 @click.argument('input_file', type=click.Path(exists=True))
 @click.option('--output-dir', default='./split_output', help='输出目录')
 @click.option('--max-chars', default=2000, help='每个分块的最大字符数')
@@ -663,32 +698,13 @@ def wiki_init(wiki_name, display_name, description, jira_projects, keywords, con
 @handle_cli_errors
 def split_doc(input_file, output_dir, max_chars, split_level, dry_run):
     """分割文档为小块"""
-    output = CLIOutput()
-    splitter = DocumentSplitter(max_chars=max_chars, split_level=int(split_level))
+    from crawler.doc_splitter import DocumentSplitter
 
     input_path = Path(input_file)
-    content = input_path.read_text(encoding='utf-8')
-    chunks = splitter.split(content)
-
-    output.info(f"文档将被分割为 {len(chunks)} 个块")
-
-    if dry_run:
-        for i, chunk in enumerate(chunks, 1):
-            output.subheader(f"块 {i} ({len(chunk)} 字符)")
-            preview = chunk[:200] + '...' if len(chunk) > 200 else chunk
-            output.info(preview)
-        return
-
-    # 保存分块
     output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
 
-    base_name = input_path.stem
-    for i, chunk in enumerate(chunks, 1):
-        chunk_file = output_path / f"{base_name}_part{i}.md"
-        chunk_file.write_text(chunk, encoding='utf-8')
-
-    output.success(f"文档已分割并保存到 {output_dir}")
+    splitter = DocumentSplitter(max_chars=max_chars, split_level=int(split_level))
+    splitter.split_file(input_path, output_path, dry_run=dry_run)
 
 
 @cli.command()
@@ -935,24 +951,23 @@ def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_pr
 
 @cli.command()
 @click.argument('doc_path', type=click.Path(exists=True))
-@click.option('--config', default='config.yaml', help='配置文件路径')
+@click.option('--config', default='configs/doc_analysis_config.yaml', help='配置文件路径')
 @click.option('--output', help='输出文件路径')
 @click.option('--dry-run', is_flag=True, help='预览分析结果')
-@require_config
 @handle_cli_errors
 def analyze_doc(doc_path, config, output, dry_run):
     """分析文档"""
-    output_cli = CLIOutput()
-    cfg = ConfigManager(config).load()  # 返回字典
+    from crawler.doc_analyzer import DocumentAnalyzer
 
-    service = AnalysisService(config=cfg)
+    output_cli = CLIOutput()
 
     if dry_run:
         output_cli.info(f"将分析文档: {doc_path}")
         output_cli.info(f"配置: {config}")
         return
 
-    result = service.analyze_document(doc_path, output_path=output)
+    analyzer = DocumentAnalyzer(config_path=config)
+    result = analyzer.analyze_document(doc_path, output_path=output, dry_run=False)
     output_cli.success(f"分析完成: {result}")
 
 

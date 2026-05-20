@@ -38,9 +38,9 @@ retrieval:
 
 # LLM 配置
 llm:
-  provider: "llmstudio"       # llmstudio 或 mock
-  base_url: "http://127.0.0.1:1234"  # LLMStudio 服务地址
-  model: "qwen3.5-4b"
+  provider: "llamacpp"        # llmstudio 或 mock
+  base_url: "http://127.0.0.1:8080"  # llama.cpp 服务地址
+  model: "Qwen3.5-9B-IQ4_XS.gguf"
   timeout: 120                # 超时时间（秒）
   temperature: 0.3
 

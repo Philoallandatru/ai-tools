@@ -51,6 +51,9 @@ wikis/
 # Test outputs
 tests/outputs/
 reports/
+test_output/
+test_results/
+docs/test_doc/
 
 # Claude
 .claude/
@@ -58,6 +61,9 @@ reports/
 # Sync state
 .sync-state.json
 .atlassian-sync-state.json
+
+# Metrics history
+.report-metrics-history.json
 
 # UV lock
 uv.lock

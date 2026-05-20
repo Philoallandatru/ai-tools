@@ -194,15 +194,35 @@ class DocumentAnalyzer:
 
         sections = self.splitter.parse_document(content)
 
-        # 按配置的层级过滤
+        # 按配置的层级分组
         split_level = self.config['splitting']['split_level']
-        filtered_sections = [s for s in sections if s.level == split_level]
+        section_groups = self.splitter.split_by_level(sections, split_level)
 
-        if not filtered_sections:
+        if not section_groups:
             # 如果没有找到指定层级的标题，返回所有章节
             return sections
 
-        return filtered_sections
+        # 合并每组的内容为一个 DocumentSection
+        merged_sections = []
+        for group in section_groups:
+            if not group:
+                continue
+
+            # 使用第一个章节（主标题）的元数据
+            main_section = group[0]
+            # 合并所有子章节的内容
+            merged_content = self.splitter.merge_sections(group)
+
+            merged_section = DocumentSection(
+                title=main_section.title,
+                level=main_section.level,
+                content=merged_content,
+                start_line=main_section.start_line,
+                end_line=group[-1].end_line
+            )
+            merged_sections.append(merged_section)
+
+        return merged_sections
 
     def _extract_keywords(self, text: str) -> List[str]:
         """
