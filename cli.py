@@ -39,7 +39,25 @@ def override_llm_config(cfg: dict, base_url: Optional[str], model: Optional[str]
 
 @click.group()
 def cli():
-    """Atlassian 数据爬取工具 - 从 Jira 和 Confluence 爬取数据到本地 markdown"""
+    """Atlassian 数据爬取工具 - 从 Jira 和 Confluence 爬取数据到本地 markdown
+
+    \b
+    命令分组：
+      文档处理：doc-pipeline, doc-convert-pdf, doc-split, analyze-doc
+      Wiki 管理：wiki-init, wiki-compile, wiki-list, wiki-status, query-wiki
+      Jira 分析：jira-analyze, jira-find, jira-list
+      数据同步：sync, status, search
+      其他工具：init, generate-report, export-filtered
+
+    \b
+    快速开始：
+      1. 初始化配置：python cli.py init
+      2. 同步数据：python cli.py sync
+      3. 分析 PDF：python cli.py doc-pipeline input.pdf
+      4. 分析 Jira：python cli.py jira-analyze PROJ-123
+
+    使用 'python cli.py COMMAND --help' 查看具体命令的帮助信息
+    """
     pass
 
 
@@ -236,7 +254,7 @@ def status(config):
     output.key_value("Jira Issues", jira_count)
 
 
-@cli.command()
+@cli.command('wiki-compile')
 @click.option('--wiki-name', help='Wiki 名称')
 @click.option('--files', multiple=True, help='要编译的文件（支持 glob）')
 @click.option('--batch-size', default=5, help='每批文件数量')
@@ -247,8 +265,14 @@ def status(config):
 @click.option('--llm-model', help='LLM 模型名称 (覆盖配置文件)')
 @require_config
 @handle_cli_errors
-def compile_wiki(wiki_name, files, batch_size, resume, all_wikis, config, llm_base_url, llm_model):
-    """编译 wiki 知识库（支持批量编译和多 wiki）"""
+def wiki_compile(wiki_name, files, batch_size, resume, all_wikis, config, llm_base_url, llm_model):
+    """编译 wiki 知识库（支持批量编译和多 wiki）
+
+    相关命令：
+      wiki-init    - 初始化新的 wiki
+      query-wiki   - 查询 wiki
+      wiki-status  - 查看 wiki 状态
+    """
     from crawler.config.config_manager import ConfigManager
     from crawler.wiki_manager import WikiManager
     from crawler.wiki_batch_compiler import WikiBatchCompiler, BatchCompilationConfig
@@ -654,14 +678,19 @@ def wiki_init(wiki_name, display_name, description, jira_projects, keywords, con
     output.info(f"  uv run python cli.py compile-wiki --wiki-name {wiki_name} --files sources/*.md")
 
 
-@cli.command()
+@cli.command('doc-convert-pdf')
 @click.argument('pdf_file', type=click.Path(exists=True))
 @click.option('--output', '-o', help='输出Markdown文件路径')
 @click.option('--start-page', default=0, help='起始页码（从0开始）')
 @click.option('--end-page', type=int, help='结束页码（不包含）')
 @handle_cli_errors
-def convert_pdf(pdf_file, output, start_page, end_page):
-    """将PDF转换为Markdown格式"""
+def doc_convert_pdf(pdf_file, output, start_page, end_page):
+    """将PDF转换为Markdown格式
+
+    相关命令：
+      doc-pipeline  - 端到端文档分析流水线
+      split-doc     - 拆分文档
+    """
     from crawler.pdf_converter import PDFConverter
 
     output_cli = CLIOutput()
@@ -689,15 +718,21 @@ def convert_pdf(pdf_file, output, start_page, end_page):
     output_cli.key_value("内容长度", f"{len(markdown):,} 字符")
 
 
-@cli.command()
+@cli.command('doc-split')
 @click.argument('input_file', type=click.Path(exists=True))
 @click.option('--output-dir', default='./split_output', help='输出目录')
 @click.option('--max-chars', default=2000, help='每个分块的最大字符数')
 @click.option('--split-level', type=click.Choice(['1', '2', '3']), default='2', help='分割级别')
 @click.option('--dry-run', is_flag=True, help='预览分割结果')
 @handle_cli_errors
-def split_doc(input_file, output_dir, max_chars, split_level, dry_run):
-    """分割文档为小块"""
+def doc_split(input_file, output_dir, max_chars, split_level, dry_run):
+    """分割文档为小块
+
+    相关命令：
+      doc-pipeline     - 端到端文档分析流水线
+      doc-convert-pdf  - 转换 PDF
+      analyze-doc      - 分析文档
+    """
     from crawler.doc_splitter import DocumentSplitter
 
     input_path = Path(input_file)
@@ -753,12 +788,17 @@ def search(query, file_type, context_lines, regex, case_sensitive, max_results, 
     output.info(f"找到 {len(results)} 处匹配")
 
 
-@cli.command()
+@cli.command('jira-find')
 @click.argument('issue_key')
 @click.option('--source-dir', default='./sources', help='源目录')
 @handle_cli_errors
-def find_jira(issue_key, source_dir):
-    """查找 Jira issue"""
+def jira_find(issue_key, source_dir):
+    """查找 Jira issue
+
+    相关命令：
+      jira-list     - 列出所有 issues
+      jira-analyze  - 分析 issue
+    """
     output = CLIOutput()
     source_path = Path(source_dir)
     # 支持两种目录结构：sources/jira/*.md 和 sources/*.md
@@ -785,14 +825,19 @@ def find_jira(issue_key, source_dir):
             output.key_value("类型", metadata.get('issue_type'), indent=1)
 
 
-@cli.command()
+@cli.command('jira-list')
 @click.option('--source-dir', default='./sources', help='源目录')
 @click.option('--status', help='按状态过滤')
 @click.option('--priority', help='按优先级过滤')
 @click.option('--issue-type', help='按类型过滤')
 @handle_cli_errors
-def list_jira(source_dir, status, priority, issue_type):
-    """列出 Jira issues"""
+def jira_list(source_dir, status, priority, issue_type):
+    """列出 Jira issues
+
+    相关命令：
+      jira-find     - 查找特定 issue
+      jira-analyze  - 分析 issue
+    """
     output = CLIOutput()
     source_path = Path(source_dir)
     jira_files = list(source_path.glob('**/jira/**/*.md'))
@@ -912,7 +957,7 @@ def export_filtered(doc_type, statuses, today, yesterday, days, output, source_d
             output_cli.info(file)
 
 
-@cli.command()
+@cli.command('jira-analyze')
 @click.argument('issue_key')
 @click.option('--source-dir', default='./sources', help='源目录')
 @click.option('--wiki-name', help='指定 wiki 名称')
@@ -925,8 +970,13 @@ def export_filtered(doc_type, statuses, today, yesterday, days, output, source_d
 @click.option('--config', default='config.yaml', help='配置文件路径')
 @require_config
 @handle_cli_errors
-def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_provider, llm_base_url, llm_model, config):
-    """分析 Jira issue（支持多 wiki）"""
+def jira_analyze(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_provider, llm_base_url, llm_model, config):
+    """分析 Jira issue（支持多 wiki）
+
+    相关命令：
+      jira-find  - 查找 issue
+      jira-list  - 列出所有 issues
+    """
     output_cli = CLIOutput()
     cfg = ConfigManager(config).load()  # 返回字典
 
@@ -949,6 +999,184 @@ def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_pr
     output_cli.success(f"分析报告已生成: {report_path}")
 
 
+
+
+@cli.command('doc-pipeline')
+@click.argument('pdf_file', type=click.Path(exists=True))
+@click.option('--output-dir', default='./pipeline_output', help='输出目录')
+@click.option('--config', default='config.yaml', help='配置文件路径')
+@click.option('--start-page', default=0, help='PDF起始页码（从0开始）')
+@click.option('--end-page', type=int, help='PDF结束页码（不包含）')
+@click.option('--max-chars', default=5000, help='文档拆分的最大字符数')
+@click.option('--split-level', type=click.Choice(['1', '2', '3']), default='2', help='文档拆分级别（H1/H2/H3）')
+@click.option('--dry-run', is_flag=True, help='预览模式，不实际执行')
+@handle_cli_errors
+def doc_pipeline(pdf_file, output_dir, config, start_page, end_page, max_chars, split_level, dry_run):
+    """
+    端到端文档分析：PDF → Markdown → 拆分 → 分析
+
+    这是一个便捷命令，自动执行完整的文档分析流程：
+    1. 将 PDF 转换为 Markdown
+    2. 按标题层级拆分文档
+    3. 批量分析每个小节
+
+    示例：
+      python cli.py doc-pipeline input.pdf
+      python cli.py doc-pipeline input.pdf --output-dir ./my_analysis
+      python cli.py doc-pipeline input.pdf --start-page 10 --end-page 50
+
+    相关命令：
+      convert-pdf  - 单独转换 PDF
+      split-doc    - 单独拆分文档
+      analyze-doc  - 单独分析文档
+    """
+    from crawler.pdf_converter import PDFConverter
+    from crawler.doc_splitter import DocumentSplitter
+    from crawler.doc_analyzer import DocumentAnalyzer
+    from pathlib import Path
+    import time
+
+    output_cli = CLIOutput()
+    pdf_path = Path(pdf_file)
+    output_path = Path(output_dir)
+
+    # 验证 PDF 文件
+    if pdf_path.suffix.lower() != '.pdf':
+        output_cli.error(f"不支持的文件类型: {pdf_path.suffix}")
+        output_cli.info("doc-pipeline 命令仅支持 PDF 文件")
+        return
+
+    output_cli.header(f"文档分析流水线")
+    output_cli.info(f"输入文件: {pdf_file}")
+    output_cli.info(f"输出目录: {output_dir}")
+    output_cli.info(f"配置文件: {config}")
+
+    if dry_run:
+        output_cli.info("\n[预览模式] 将执行以下步骤:")
+        output_cli.info("  1. 转换 PDF -> Markdown")
+        output_cli.info("  2. 拆分 Markdown 文档")
+        output_cli.info("  3. 批量分析文档小节")
+        return
+
+    # 创建输出目录
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    try:
+        # ============================================================
+        # Step 1: 转换 PDF -> Markdown
+        # ============================================================
+        output_cli.separator()
+        output_cli.subheader("步骤 1/3: 转换 PDF -> Markdown")
+
+        converter = PDFConverter()
+        info = converter.get_pdf_info(pdf_file)
+
+        output_cli.info(f"PDF 信息:")
+        output_cli.key_value("文件名", info['filename'], indent=1)
+        output_cli.key_value("总页数", info['total_pages'], indent=1)
+        output_cli.key_value("文件大小", f"{info['file_size_mb']:.2f} MB", indent=1)
+
+        # 确定页码范围
+        actual_end_page = end_page or info['total_pages']
+        page_range = f"{start_page+1}-{actual_end_page}"
+
+        # 生成 Markdown 文件路径
+        md_filename = f"{pdf_path.stem}_pages_{page_range}.md"
+        md_path = output_path / md_filename
+
+        output_cli.info(f"\n转换页码范围: {page_range}")
+        start_time = time.time()
+
+        markdown = converter.convert_to_markdown(pdf_file, str(md_path), start_page, end_page)
+
+        elapsed = time.time() - start_time
+        output_cli.success(f"转换完成 ({elapsed:.1f}秒)")
+        output_cli.key_value("输出文件", str(md_path), indent=1)
+        output_cli.key_value("内容长度", f"{len(markdown):,} 字符", indent=1)
+
+        # ============================================================
+        # Step 2: 拆分文档
+        # ============================================================
+        output_cli.separator()
+        output_cli.subheader("步骤 2/3: 拆分文档")
+
+        split_dir = output_path / f"{pdf_path.stem}_split"
+        split_dir.mkdir(parents=True, exist_ok=True)
+
+        splitter = DocumentSplitter(max_chars=max_chars, split_level=int(split_level))
+
+        output_cli.info(f"拆分配置:")
+        output_cli.key_value("拆分级别", f"H{split_level}", indent=1)
+        output_cli.key_value("最大字符数", f"{max_chars:,}", indent=1)
+        output_cli.key_value("输出目录", str(split_dir), indent=1)
+
+        start_time = time.time()
+        split_files = splitter.split_file(md_path, split_dir, dry_run=False)
+        elapsed = time.time() - start_time
+
+        output_cli.success(f"拆分完成 ({elapsed:.1f}秒)")
+        output_cli.key_value("生成文件数", len(split_files), indent=1)
+
+        # ============================================================
+        # Step 3: 批量分析
+        # ============================================================
+        output_cli.separator()
+        output_cli.subheader("步骤 3/3: 批量分析文档")
+
+        analyzer = DocumentAnalyzer(config_path=config)
+
+        output_cli.info(f"分析配置:")
+        output_cli.key_value("文档数量", len(split_files), indent=1)
+        output_cli.key_value("LLM Provider", analyzer.config['llm']['provider'], indent=1)
+
+        reports_dir = output_path / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+
+        output_cli.info(f"\n开始分析...")
+        start_time = time.time()
+
+        report_files = []
+        for i, split_file in enumerate(split_files, 1):
+            output_cli.info(f"  [{i}/{len(split_files)}] {split_file.name}")
+
+            try:
+                report_path = analyzer.analyze_document(
+                    str(split_file),
+                    output_path=None,  # 使用默认路径
+                    dry_run=False
+                )
+                report_files.append(report_path)
+            except Exception as e:
+                output_cli.error(f"    分析失败: {e}")
+                continue
+
+        elapsed = time.time() - start_time
+        output_cli.success(f"分析完成 ({elapsed:.1f}秒)")
+        output_cli.key_value("成功", f"{len(report_files)}/{len(split_files)}", indent=1)
+
+        # ============================================================
+        # 总结
+        # ============================================================
+        output_cli.separator()
+        output_cli.header("流水线完成")
+        output_cli.info(f"\n生成的文件:")
+        output_cli.key_value("Markdown", str(md_path), indent=1)
+        output_cli.key_value("拆分文档", f"{len(split_files)} 个文件在 {split_dir}", indent=1)
+        output_cli.key_value("分析报告", f"{len(report_files)} 个报告", indent=1)
+
+        output_cli.info(f"\n输出目录结构:")
+        output_cli.info(f"  {output_dir}/")
+        output_cli.info(f"  ├── {md_filename}")
+        output_cli.info(f"  ├── {pdf_path.stem}_split/  ({len(split_files)} 个文件)")
+        output_cli.info(f"  └── reports/  ({len(report_files)} 个报告)")
+
+    except Exception as e:
+        output_cli.error(f"流水线执行失败: {e}")
+        import traceback
+        output_cli.error(traceback.format_exc())
+        raise
+
+
 @cli.command()
 @click.argument('doc_path', type=click.Path(exists=True))
 @click.option('--config', default='config.yaml', help='配置文件路径')
@@ -956,7 +1184,13 @@ def analyze_jira(issue_key, source_dir, wiki_name, wiki_mode, output_dir, llm_pr
 @click.option('--dry-run', is_flag=True, help='预览分析结果')
 @handle_cli_errors
 def analyze_doc(doc_path, config, output, dry_run):
-    """分析文档（仅支持 Markdown 文件）"""
+    """分析文档（仅支持 Markdown 文件）
+
+    相关命令：
+      doc-pipeline     - 端到端文档分析流水线（推荐用于 PDF）
+      doc-convert-pdf  - 转换 PDF
+      doc-split        - 拆分文档
+    """
     from crawler.doc_analyzer import DocumentAnalyzer
     from pathlib import Path
 
@@ -972,9 +1206,12 @@ def analyze_doc(doc_path, config, output, dry_run):
         output_cli.error(f"不支持的文件类型: {doc_file.suffix}")
         output_cli.info("analyze-doc 命令仅支持 Markdown 文件 (.md, .markdown)")
         output_cli.info("")
-        output_cli.info("如果要分析 PDF 文件，请使用以下工作流：")
-        output_cli.info("  1. 转换 PDF: python cli.py convert-pdf input.pdf -o output.md")
-        output_cli.info("  2. 拆分文档: python cli.py split-doc output.md -o output_dir/")
+        output_cli.info("如果要分析 PDF 文件，推荐使用端到端流水线：")
+        output_cli.info("  python cli.py doc-pipeline input.pdf")
+        output_cli.info("")
+        output_cli.info("或者手动执行以下步骤：")
+        output_cli.info("  1. 转换 PDF: python cli.py doc-convert-pdf input.pdf -o output.md")
+        output_cli.info("  2. 拆分文档: python cli.py doc-split output.md --output-dir output_dir/")
         output_cli.info("  3. 分析文档: python cli.py analyze-doc output_dir/section_01.md")
         return
 
@@ -986,6 +1223,19 @@ def analyze_doc(doc_path, config, output, dry_run):
     analyzer = DocumentAnalyzer(config_path=config)
     result = analyzer.analyze_document(doc_path, output_path=output, dry_run=False)
     output_cli.success(f"分析完成: {result}")
+
+
+# ============================================================
+# 命令别名（向后兼容）
+# ============================================================
+
+# 为重命名的命令添加别名，保持向后兼容
+cli.add_command(doc_convert_pdf, name='convert-pdf')
+cli.add_command(doc_split, name='split-doc')
+cli.add_command(wiki_compile, name='compile-wiki')
+cli.add_command(jira_analyze, name='analyze-jira')
+cli.add_command(jira_find, name='find-jira')
+cli.add_command(jira_list, name='list-jira')
 
 
 if __name__ == '__main__':
