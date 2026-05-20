@@ -68,7 +68,11 @@ class DocumentAnalyzer:
             max_chars=self.config['splitting']['max_chars'],
             split_level=self.config['splitting']['split_level']
         )
-        self.searcher = ContentSearcher()
+
+        # 初始化两个搜索器：一个用于代码，一个用于文档
+        self.code_searcher = ContentSearcher(source_dir='.')  # 搜索整个项目
+        docs_path = self.config['retrieval']['docs']['path']
+        self.doc_searcher = ContentSearcher(source_dir=docs_path)  # 搜索文档目录
 
         # 初始化 LLM 客户端
         llm_config = self.config['llm']
@@ -464,7 +468,7 @@ class DocumentAnalyzer:
 
             for keyword in keywords[:10]:  # 限制关键词数量
                 try:
-                    matches = self.searcher.search(
+                    matches = self.code_searcher.search(
                         query=keyword,
                         file_type='all',
                         context_lines=code_context_lines,
@@ -489,11 +493,10 @@ class DocumentAnalyzer:
         # 检索需求文档
         if self.config['retrieval']['docs']['enabled']:
             doc_context_lines = self.config['retrieval']['docs']['context_lines']
-            docs_path = self.config['retrieval']['docs']['path']
 
             for keyword in keywords[:10]:
                 try:
-                    matches = self.searcher.search(
+                    matches = self.doc_searcher.search(
                         query=keyword,
                         file_type='all',
                         context_lines=doc_context_lines,
@@ -504,7 +507,7 @@ class DocumentAnalyzer:
                     # 过滤文档文件
                     doc_matches = [
                         m for m in matches
-                        if self._is_doc_file(m.file_path) and docs_path in str(m.file_path)
+                        if self._is_doc_file(m.file_path)
                     ]
 
                     for match in doc_matches[:2]:
