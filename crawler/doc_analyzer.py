@@ -741,9 +741,35 @@ class DocumentAnalyzer:
         return report_path
 
     def _generate_anchor(self, title: str, index: int) -> str:
-        """生成 Markdown 锚点"""
-        # 简化：使用索引
-        return f"第-{index}-节{title[:10]}"
+        """
+        生成 Markdown 锚点
+
+        遵循 GitHub Flavored Markdown 锚点规则：
+        1. 转为小写
+        2. 移除特殊字符（保留字母、数字、连字符、下划线、中文）
+        3. 空格转为连字符
+
+        Args:
+            title: 标题文本
+            index: 章节索引
+
+        Returns:
+            锚点字符串
+        """
+        # 构建完整标题
+        full_title = f"第-{index}-节：{title}"
+
+        # 移除 Markdown 格式符号
+        anchor = full_title.replace('*', '').replace('`', '').replace('[', '').replace(']', '')
+
+        # 空格转为连字符
+        anchor = anchor.replace(' ', '-')
+
+        # 移除其他特殊字符（保留字母、数字、连字符、下划线、中文）
+        import re
+        anchor = re.sub(r'[^\w一-鿿-]', '', anchor)
+
+        return anchor
 
     def _generate_summary(self, results: List[AnalysisResult]) -> str:
         """生成总结统计"""
