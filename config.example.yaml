@@ -255,6 +255,15 @@ doc_analysis:
   splitting:
     split_level: 2              # 按 H2 标题切分
     max_chars: 5000             # 单个小节最大字符数
+    strategy: "fixed"           # 拆分策略: smart(智能合并) | fixed(固定拆分)
+    min_section_chars: 0        # 最小小节字符数（0 = 不过滤任何小节）
+    merge_related: false        # 是否合并相关小节（长文档建议设为 false）
+
+  # 小节过滤配置
+  filtering:
+    skip_empty: false           # 是否跳过空小节
+    exclude_patterns: []        # 排除的小节标题模式（如 ["原始数据（JSON）", "Debug Info"]）
+    min_content_ratio: 0.0      # 最小内容比例（0.0 = 不检查内容比例）
 
   # 检索配置
   retrieval:
