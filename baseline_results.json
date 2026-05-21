@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-05-21 09:51:11",
+  "results": [
+    {
+      "name": "doc_analysis",
+      "success": false,
+      "duration": 0.03,
+      "output_size": 0,
+      "error": "Traceback (most recent call last):\n  File \"C:\\Users\\Administrator\\Documents\\Code\\my-code\\ai-tools\\cli.py\", line 8, in <module>\n    import click\nModuleNotFoundError: No module named 'click'\n"
+    },
+    {
+      "name": "jira_analysis",
+      "success": false,
+      "duration": 0.03,
+      "output_size": 0,
+      "error": "Traceback (most recent call last):\n  File \"C:\\Users\\Administrator\\Documents\\Code\\my-code\\ai-tools\\cli.py\", line 8, in <module>\n    import click\nModuleNotFoundError: No module named 'click'\n"
+    },
+    {
+      "name": "report_generation",
+      "success": false,
+      "duration": 0.03,
+      "output_size": 0,
+      "error": "Traceback (most recent call last):\n  File \"C:\\Users\\Administrator\\Documents\\Code\\my-code\\ai-tools\\cli.py\", line 8, in <module>\n    import click\nModuleNotFoundError: No module named 'click'\n"
+    }
+  ]
+}

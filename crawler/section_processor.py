@@ -211,12 +211,14 @@ class SectionFilter:
         Returns:
             是否跳过
         """
+        content = section.content.strip()
+
         # 1. 检查是否为空
-        if self.skip_empty and len(section.content.strip()) == 0:
+        if self.skip_empty and len(content) == 0:
             return True
 
         # 2. 检查是否小于最小字符数
-        if len(section.content) < self.min_section_chars:
+        if len(content) < self.min_section_chars:
             return True
 
         # 3. 检查是否匹配排除模式
@@ -224,9 +226,9 @@ class SectionFilter:
             if pattern.lower() in section.title.lower():
                 return True
 
-        # 4. 检查内容比例
-        if total_chars > 0:
-            content_ratio = len(section.content) / total_chars
+        # 4. 检查内容比例（仅当 min_content_ratio > 0 时生效）
+        if self.min_content_ratio > 0 and total_chars > 0 and len(content) > 0:
+            content_ratio = len(content) / total_chars
             if content_ratio < self.min_content_ratio:
                 return True
 
