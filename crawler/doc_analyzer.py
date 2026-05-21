@@ -308,11 +308,21 @@ class DocumentAnalyzer:
         Returns:
             关键词列表
         """
-        return self.keyword_extractor.extract_from_text(
+        logger.info("=" * 60)
+        logger.info("开始提取关键词")
+        logger.info(f"文本长度: {len(text)} 字符")
+        logger.info(f"文本预览: {text[:200]}...")
+
+        keywords = self.keyword_extractor.extract_from_text(
             text=text,
             context="document",
             max_tokens=300
         )
+
+        logger.info(f"提取到 {len(keywords)} 个关键词: {keywords}")
+        logger.info("=" * 60)
+
+        return keywords
 
 
     def _extract_images(self, content: str) -> List[Dict[str, str]]:
@@ -440,6 +450,10 @@ class DocumentAnalyzer:
         keywords: List[str]
     ) -> RetrievalContext:
         """检索相关上下文"""
+        logger.info("\n" + "=" * 80)
+        logger.info("开始检索相关上下文")
+        logger.info("=" * 80)
+
         code_snippets = []
         doc_snippets = []
 
@@ -447,9 +461,21 @@ class DocumentAnalyzer:
 
         # 检索代码库
         if self.config['retrieval']['code']['enabled']:
-            code_context_lines = self.config['retrieval']['code']['context_lines']
+            logger.info("\n[代码检索] 开始检索代码库")
+            code_config = self.config['retrieval']['code']
+            logger.info(f"  配置信息:")
+            logger.info(f"    - 基础目录: {code_config.get('base_dir', '.')}")
+            logger.info(f"    - 文件类型: {code_config.get('patterns', [])}")
+            logger.info(f"    - 排除目录: {code_config.get('exclude_dirs', [])}")
+            logger.info(f"    - 上下文行数: {code_config['context_lines']}")
+            logger.info(f"    - 最大结果数: {max_results}")
 
-            for keyword in keywords[:10]:  # 限制关键词数量
+            code_context_lines = code_config['context_lines']
+            keywords_to_search = keywords[:10]  # 限制关键词数量
+            logger.info(f"\n  将搜索 {len(keywords_to_search)} 个关键词: {keywords_to_search}")
+
+            for i, keyword in enumerate(keywords_to_search, 1):
+                logger.info(f"\n  [{i}/{len(keywords_to_search)}] 搜索关键词: '{keyword}'")
                 try:
                     matches = self.code_searcher.search(
                         query=keyword,
@@ -459,25 +485,52 @@ class DocumentAnalyzer:
                         max_results=max_results
                     )
 
+                    logger.info(f"      原始匹配数: {len(matches)}")
+
                     # 过滤代码文件
                     code_matches = [
                         m for m in matches
                         if self._is_code_file(m.file_path)
                     ]
 
-                    for match in code_matches[:2]:  # 每个关键词最多2个结果
-                        snippet = self._format_code_snippet(match, keyword, code_context_lines)
-                        if snippet:
-                            code_snippets.append(snippet)
+                    logger.info(f"      过滤后代码文件匹配数: {len(code_matches)}")
+
+                    if code_matches:
+                        logger.info(f"      匹配的文件:")
+                        for match in code_matches[:2]:  # 每个关键词最多2个结果
+                            logger.info(f"        - {match.file_path}:{match.line_number}")
+                            snippet = self._format_code_snippet(match, keyword, code_context_lines)
+                            if snippet:
+                                code_snippets.append(snippet)
+                                logger.info(f"          ✓ 已添加代码片段 (行 {snippet.line_start}-{snippet.line_end})")
+                    else:
+                        logger.info(f"      未找到匹配的代码文件")
 
                 except Exception as e:
-                    logger.warning(f"检索关键词 '{keyword}' 失败: {e}")
+                    logger.warning(f"      ✗ 检索失败: {e}")
+
+            logger.info(f"\n  [代码检索] 完成，共收集 {len(code_snippets)} 个代码片段")
+
+        else:
+            logger.info("\n[代码检索] 已禁用")
 
         # 检索需求文档
         if self.config['retrieval']['docs']['enabled']:
-            doc_context_lines = self.config['retrieval']['docs']['context_lines']
+            logger.info("\n[文档检索] 开始检索需求文档")
+            docs_config = self.config['retrieval']['docs']
+            logger.info(f"  配置信息:")
+            logger.info(f"    - 文档目录: {docs_config['path']}")
+            logger.info(f"    - 文件类型: {docs_config.get('patterns', [])}")
+            logger.info(f"    - 排除文件: {docs_config.get('exclude_files', [])}")
+            logger.info(f"    - 上下文行数: {docs_config['context_lines']}")
+            logger.info(f"    - 最大结果数: {max_results}")
 
-            for keyword in keywords[:10]:
+            doc_context_lines = docs_config['context_lines']
+            keywords_to_search = keywords[:10]
+            logger.info(f"\n  将搜索 {len(keywords_to_search)} 个关键词: {keywords_to_search}")
+
+            for i, keyword in enumerate(keywords_to_search, 1):
+                logger.info(f"\n  [{i}/{len(keywords_to_search)}] 搜索关键词: '{keyword}'")
                 try:
                     matches = self.doc_searcher.search(
                         query=keyword,
@@ -487,27 +540,71 @@ class DocumentAnalyzer:
                         max_results=max_results
                     )
 
+                    logger.info(f"      原始匹配数: {len(matches)}")
+
                     # 过滤文档文件
                     doc_matches = [
                         m for m in matches
                         if self._is_doc_file(m.file_path)
                     ]
 
-                    for match in doc_matches[:2]:
-                        snippet = self._format_code_snippet(match, keyword, doc_context_lines)
-                        if snippet:
-                            doc_snippets.append(snippet)
+                    logger.info(f"      过滤后文档文件匹配数: {len(doc_matches)}")
+
+                    if doc_matches:
+                        logger.info(f"      匹配的文件:")
+                        for match in doc_matches[:2]:
+                            logger.info(f"        - {match.file_path}:{match.line_number}")
+                            snippet = self._format_code_snippet(match, keyword, doc_context_lines)
+                            if snippet:
+                                doc_snippets.append(snippet)
+                                logger.info(f"          ✓ 已添加文档片段 (行 {snippet.line_start}-{snippet.line_end})")
+                    else:
+                        logger.info(f"      未找到匹配的文档文件")
 
                 except Exception as e:
-                    logger.warning(f"检索文档关键词 '{keyword}' 失败: {e}")
+                    logger.warning(f"      ✗ 检索失败: {e}")
+
+            logger.info(f"\n  [文档检索] 完成，共收集 {len(doc_snippets)} 个文档片段")
+
+        else:
+            logger.info("\n[文档检索] 已禁用")
 
         # 去重（基于文件路径和行号）
+        logger.info("\n[去重处理]")
+        logger.info(f"  去重前: 代码片段 {len(code_snippets)} 个, 文档片段 {len(doc_snippets)} 个")
+
         code_snippets = self._deduplicate_snippets(code_snippets)
         doc_snippets = self._deduplicate_snippets(doc_snippets)
 
+        logger.info(f"  去重后: 代码片段 {len(code_snippets)} 个, 文档片段 {len(doc_snippets)} 个")
+
+        # 限制最终结果数量
+        final_code_snippets = code_snippets[:max_results]
+        final_doc_snippets = doc_snippets[:max_results]
+
+        if len(code_snippets) > max_results:
+            logger.info(f"  代码片段超过限制，截取前 {max_results} 个")
+        if len(doc_snippets) > max_results:
+            logger.info(f"  文档片段超过限制，截取前 {max_results} 个")
+
+        logger.info("\n[检索总结]")
+        logger.info(f"  最终返回: 代码片段 {len(final_code_snippets)} 个, 文档片段 {len(final_doc_snippets)} 个")
+
+        if final_code_snippets:
+            logger.info(f"  代码片段来源文件:")
+            for snippet in final_code_snippets:
+                logger.info(f"    - {snippet.file_path}:{snippet.line_start}-{snippet.line_end} (关键词: {snippet.match_keyword})")
+
+        if final_doc_snippets:
+            logger.info(f"  文档片段来源文件:")
+            for snippet in final_doc_snippets:
+                logger.info(f"    - {snippet.file_path}:{snippet.line_start}-{snippet.line_end} (关键词: {snippet.match_keyword})")
+
+        logger.info("=" * 80 + "\n")
+
         return RetrievalContext(
-            code_snippets=code_snippets[:max_results],
-            doc_snippets=doc_snippets[:max_results]
+            code_snippets=final_code_snippets,
+            doc_snippets=final_doc_snippets
         )
 
     def _is_code_file(self, file_path: Path) -> bool:
