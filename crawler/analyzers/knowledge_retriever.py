@@ -13,6 +13,8 @@ from crawler.analysis_context import AnalysisContext
 from crawler.searcher import ContentSearcher
 from crawler.llm_client import BaseLLMClient
 from crawler.llm_utils import clean_llm_output, extract_json_from_llm
+from crawler.utils.keyword_extractor import KeywordExtractor
+from crawler.utils.unified_search import UnifiedSearchEngine
 
 
 class KnowledgeRetriever(BaseAnalyzer):
@@ -50,17 +52,32 @@ class KnowledgeRetriever(BaseAnalyzer):
 
         # 性能配置
         self.max_description_length = knowledge_config.get('max_description_length', 500)
-        self.max_keywords = knowledge_config.get('max_keywords', 15)  # 增加到 15
-        self.keyword_extraction_max_tokens = knowledge_config.get('keyword_extraction_max_tokens', 300)  # 增加到 300
-        self.concept_analysis_max_tokens = knowledge_config.get('concept_analysis_max_tokens', 500)  # 增加到 500
+        self.max_keywords = knowledge_config.get('max_keywords', 15)
+        self.keyword_extraction_max_tokens = knowledge_config.get('keyword_extraction_max_tokens', 300)
+        self.concept_analysis_max_tokens = knowledge_config.get('concept_analysis_max_tokens', 500)
         self.wiki_query_timeout = knowledge_config.get('wiki_query_timeout', 30)
-        self.wiki_content_preview = knowledge_config.get('wiki_content_preview', 2000)  # 增加到 2000
+        self.wiki_content_preview = knowledge_config.get('wiki_content_preview', 2000)
         self.max_thread_workers = knowledge_config.get('max_thread_workers', 3)
         self.min_keyword_length = knowledge_config.get('min_keyword_length', 2)
         self.max_keyword_length = knowledge_config.get('max_keyword_length', 20)
-        self.max_search_keywords = knowledge_config.get('max_search_keywords', 8)  # 增加到 8
+        self.max_search_keywords = knowledge_config.get('max_search_keywords', 8)
         self.max_results_per_keyword = knowledge_config.get('max_results_per_keyword', 3)
-        self.min_relevance_score = knowledge_config.get('min_relevance_score', 3)  # 新增：最低相关性阈值
+        self.min_relevance_score = knowledge_config.get('min_relevance_score', 3)
+
+        # 初始化共享模块
+        self.keyword_extractor = KeywordExtractor(
+            llm_client=llm_client,
+            min_length=self.min_keyword_length,
+            max_length=self.max_keyword_length,
+            max_keywords=self.max_keywords
+        )
+
+        self.search_engine = UnifiedSearchEngine(
+            source_dir=source_dir,
+            llm_client=llm_client,
+            cache_dir=str(self.cache_dir / 'search') if self.cache_enabled else None,
+            min_relevance_score=self.min_relevance_score
+        )
 
     def get_name(self) -> str:
         return "knowledge"
@@ -165,7 +182,7 @@ class KnowledgeRetriever(BaseAnalyzer):
 
     def _extract_keywords(self, jira_data: Dict[str, Any]) -> List[str]:
         """
-        从 Jira 数据中提取关键词（使用 LLM 提取技术关键词）
+        从 Jira 数据中提取关键词（使用共享的 KeywordExtractor）
 
         Args:
             jira_data: Jira 数据
@@ -173,76 +190,12 @@ class KnowledgeRetriever(BaseAnalyzer):
         Returns:
             关键词列表
         """
-        # 如果没有 LLM 客户端，回退到正则表达式提取
-        if not self.llm_client:
-            return self._extract_keywords_regex(jira_data)
+        return self.keyword_extractor.extract_from_jira(
+            jira_data,
+            max_description_length=self.max_description_length,
+            max_tokens=self.keyword_extraction_max_tokens
+        )
 
-        # 使用 LLM 提取关键词
-        title = jira_data.get('title', '')
-        description = jira_data.get('description', '')[:self.max_description_length]
-
-        prompt = f"""从以下 Jira Issue 中提取 10-15 个最重要的技术关键词，用于搜索相关文档。
-
-标题: {title}
-描述: {description}
-
-要求：
-1. 提取技术术语、产品名称、协议名称、组件名称、功能模块名等
-2. 优先提取专有名词和缩写（如 NVMe, SSD, PCIe, Firmware）
-3. 包含问题相关的技术领域词汇（如 Memory, Buffer, Download, Update）
-4. 包含同义词和相关术语（如 FFU/Firmware Update, CRC/Checksum）
-5. 忽略通用词汇（如 Test, Demo, Issue, Problem）
-6. 每个关键词 {self.min_keyword_length}-{self.max_keyword_length} 个字符
-
-请以 JSON 数组格式返回：
-["关键词1", "关键词2", "关键词3", ...]"""
-
-        try:
-            print(f"   [knowledge] 使用 LLM 提取关键词...")
-            response = self.llm_client.generate(prompt, max_tokens=self.keyword_extraction_max_tokens)
-
-            # 使用统一的 JSON 提取函数
-            keywords = extract_json_from_llm(response, expected_type='array')
-            if keywords:
-                # 过滤和清理
-                keywords = [k.strip() for k in keywords if isinstance(k, str) and self.min_keyword_length <= len(k.strip()) <= self.max_keyword_length]
-                return keywords[:self.max_keywords]
-        except Exception as e:
-            print(f"   [knowledge] LLM 关键词提取失败，回退到正则表达式: {str(e)}")
-
-        # 失败时回退到正则表达式
-        return self._extract_keywords_regex(jira_data)
-
-    def _extract_keywords_regex(self, jira_data: Dict[str, Any]) -> List[str]:
-        """
-        使用正则表达式提取关键词（回退方案）
-
-        Args:
-            jira_data: Jira 数据
-
-        Returns:
-            关键词列表
-        """
-        keywords = []
-
-        # 从标题提取
-        title = jira_data.get('title', '')
-        # 提取技术术语（大写字母开头的词、缩写、特殊术语）
-        tech_terms = re.findall(r'\b[A-Z][A-Za-z0-9]*\b', title)
-        keywords.extend(tech_terms)
-
-        # 从描述提取
-        description = jira_data.get('description', '')
-        desc_terms = re.findall(r'\b[A-Z][A-Za-z0-9]*\b', description[:500])
-        keywords.extend(desc_terms)
-
-        # 去重并过滤
-        keywords = list(set(keywords))
-        # 过滤掉常见词
-        stop_words = {'The', 'This', 'That', 'With', 'From', 'When', 'Where', 'Demo', 'Test'}
-        keywords = [k for k in keywords if k not in stop_words and len(k) > 2]
-
-        return keywords[:10]  # 最多返回 10 个关键词
 
     def _query_wiki(self, keywords: List[str]) -> List[Dict[str, str]]:
         """
@@ -622,7 +575,7 @@ Wiki 概念: {concept['keyword']}
 
     def _search_sources(self, keywords: List[str]) -> List[Dict[str, Any]]:
         """
-        搜索源文件
+        搜索源文件（使用共享的 UnifiedSearchEngine）
 
         Args:
             keywords: 关键词列表
@@ -634,11 +587,13 @@ Wiki 概念: {concept['keyword']}
 
         for keyword in keywords[:self.max_search_keywords]:
             try:
-                search_results = self.searcher.search(
-                    keyword,
-                    file_type='all',
-                    context_lines=2,
-                    max_results=self.max_results_per_keyword
+                # 使用统一搜索引擎
+                search_results = self.search_engine.search(
+                    query=keyword,
+                    keywords=[keyword],
+                    max_results=self.max_results_per_keyword,
+                    use_llm_ranking=True,
+                    context_lines=2
                 )
 
                 if search_results:
@@ -646,9 +601,11 @@ Wiki 概念: {concept['keyword']}
                         'keyword': keyword,
                         'matches': [
                             {
-                                'file': r['file'],
-                                'line': r['line_number'],
-                                'text': r['line'][:200]  # 限制长度
+                                'file': r.file_path,
+                                'line': r.line_number or 0,
+                                'text': r.snippet[:200],  # 限制长度
+                                'relevance_score': r.relevance_score,
+                                'match_reason': r.match_reason
                             }
                             for r in search_results[:self.max_results_per_keyword]
                         ]

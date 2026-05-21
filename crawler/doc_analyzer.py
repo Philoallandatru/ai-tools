@@ -19,9 +19,10 @@ if sys.platform == 'win32':
 from crawler.doc_splitter import DocumentSplitter, DocumentSection
 from crawler.searcher import ContentSearcher, SearchMatch
 from crawler.llm_client import BaseLLMClient, LLMClientFactory
+from crawler.utils.keyword_extractor import KeywordExtractor
+from crawler.section_processor import DocumentProcessor, SectionGroup
 
 logger = logging.getLogger(__name__)
-
 
 def safe_print(text: str):
     """
@@ -101,13 +102,23 @@ class DocumentAnalyzer:
         else:
             self.vision_client = None
 
-    def _load_config(self) -> Dict[str, Any]:
-        """加载配置文件"""
-        if not self.config_path.exists():
-            raise FileNotFoundError(f"配置文件不存在: {self.config_path}")
+        # 初始化共享的关键词提取器
+        self.keyword_extractor = KeywordExtractor(
+            llm_client=self.llm_client,
+            min_length=2,
+            max_length=20,
+            max_keywords=15
+        )
 
-        with open(self.config_path, 'r', encoding='utf-8') as f:
-            full_config = yaml.safe_load(f)
+        # 初始化文档处理器（用于智能分组和过滤）
+        self.doc_processor = DocumentProcessor(self.config)
+
+    def _load_config(self) -> Dict[str, Any]:
+        """加载配置文件（使用统一的配置管理器）"""
+        from crawler.config import load_config
+
+        # 使用统一的配置管理器加载配置
+        full_config = load_config(str(self.config_path))
 
         # 如果是主配置文件，提取 doc_analysis 部分
         if 'doc_analysis' in full_config:
@@ -158,25 +169,40 @@ class DocumentAnalyzer:
         sections = self._split_document(doc_path)
         print(f"   [完成] 切分完成，共 {len(sections)} 个小节")
 
+        # 2. 智能处理小节（过滤 + 分组）
+        print(f"   [处理] 智能处理小节...")
+        section_groups = self.doc_processor.process_sections(sections)
+        print(f"   [完成] 处理完成，共 {len(section_groups)} 个小节组")
+
         if dry_run:
-            print(f"\n[预览] 预览模式 - 将处理以下小节:")
-            for i, section in enumerate(sections, 1):
-                safe_print(f"   {i}. {section.title} ({len(section.content)} 字符)")
+            print(f"\n[预览] 预览模式 - 将处理以下小节组:")
+            for i, group in enumerate(section_groups, 1):
+                safe_print(f"   {i}. {group.title} ({len(group.sections)} 个小节, {group.total_chars} 字符)")
+                for section in group.sections:
+                    safe_print(f"      - {section.title}")
             return ""
 
-        # 2. 分析每个小节
+        # 3. 分析每个小节组
         results = []
-        for i, section in enumerate(sections, 1):
-            safe_print(f"\n   [分析] 第 {i}/{len(sections)} 节: {section.title}")
+        for i, group in enumerate(section_groups, 1):
+            safe_print(f"\n   [分析] 第 {i}/{len(section_groups)} 组: {group.title}")
+            safe_print(f"      包含 {len(group.sections)} 个小节: {', '.join(group.section_titles)}")
 
             try:
+                # 使用合并后的内容进行分析
+                combined_content = group.combined_content
+
                 # 提取关键词
-                keywords = self._extract_keywords(section.content)
+                keywords = self._extract_keywords(combined_content)
                 print(f"      关键词: {', '.join(keywords[:5])}{'...' if len(keywords) > 5 else ''}")
 
-                # 提取图片引用
-                images = self._extract_images(section.content)
+                # 提取图片引用（从所有小节）
+                images = []
                 image_analyses = {}
+                for section in group.sections:
+                    section_images = self._extract_images(section.content)
+                    images.extend(section_images)
+
                 if images:
                     print(f"      [图片] 找到 {len(images)} 个图片引用")
                     # 分析图片内容
@@ -190,40 +216,47 @@ class DocumentAnalyzer:
                             else:
                                 print(f"         [警告] 图片分析失败")
 
-                # 检索上下文
+                # 检索上下文（使用合并后的内容）
                 print(f"      [检索] 检索相关内容...")
-                context = self._retrieve_context(section, keywords)
+                # 创建一个临时的 section 对象用于检索
+                temp_section = type('obj', (object,), {
+                    'title': group.title,
+                    'content': combined_content,
+                    'level': group.sections[0].level if group.sections else 2
+                })()
+                context = self._retrieve_context(temp_section, keywords)
                 print(f"      [完成] 找到 {len(context.code_snippets)} 个代码片段, {len(context.doc_snippets)} 个文档片段")
 
-                # 构建 prompt
-                prompt = self._build_prompt(section, context)
+                # 构建 prompt（使用合并后的内容）
+                prompt = self._build_prompt(temp_section, context)
 
                 # 调用 LLM
                 print(f"      [LLM] 调用 LLM 分析...")
                 llm_response = self._call_llm(prompt)
                 print(f"      [完成] LLM 分析完成")
 
-                # 创建结果，包含图片分析
+                # 创建结果，包含图片分析和小节组信息
                 result = AnalysisResult(
-                    section=section,
+                    section=temp_section,
                     llm_response=llm_response,
                     retrieval_context=context,
                     keywords=keywords,
                     image_references=images
                 )
-                # 添加图片分析结果（作为额外属性）
+                # 添加图片分析结果和小节组信息（作为额外属性）
                 result.image_analyses = image_analyses
+                result.section_group = group
                 results.append(result)
 
             except Exception as e:
                 # LLM 调用失败，立即停止
-                error_msg = f"处理第 {i} 节 '{section.title}' 时失败: {str(e)}"
+                error_msg = f"处理第 {i} 组 '{group.title}' 时失败: {str(e)}"
                 logger.error(error_msg)
                 raise RuntimeError(error_msg) from e
 
         # 3. 生成报告
         print(f"\n   [报告] 生成分析报告...")
-        report_path = self._generate_report(doc_path, results, output_path)
+        report_path = self._generate_report(doc_path, results, output_path, section_groups)
         print(f"   [完成] 报告已保存: {report_path}")
 
         return str(report_path)
@@ -267,7 +300,7 @@ class DocumentAnalyzer:
 
     def _extract_keywords(self, text: str) -> List[str]:
         """
-        使用 LLM 从文本中提取关键词用于代码检索
+        使用共享的 KeywordExtractor 从文本中提取关键词
 
         Args:
             text: 文档文本内容
@@ -275,99 +308,12 @@ class DocumentAnalyzer:
         Returns:
             关键词列表
         """
-        try:
-            # 获取关键词提取 prompt 模板
-            prompt_template = self.config['prompts'].get('keyword_extraction', '')
-            if not prompt_template:
-                logger.warning("未找到关键词提取 prompt，使用默认模板")
-                prompt_template = """请从以下文档内容中提取适合代码搜索的关键词。
+        return self.keyword_extractor.extract_from_text(
+            text=text,
+            context="document",
+            max_tokens=300
+        )
 
-要求：
-1. 提取技术术语、API 名称、组件名称、功能名称
-2. 保留完整的技术术语（如 "NVMe Reset" 而不是拆分）
-3. 提取核心概念和功能关键词
-4. 中英文关键词都要提取
-5. 每个关键词 2-20 个字符
-6. 提取 5-15 个最重要的关键词
-7. 只返回关键词列表，每行一个，不要序号和其他解释
-
-文档内容：
-{text}
-
-关键词："""
-
-            # 限制文本长度，避免 token 过多
-            text_excerpt = text[:1000] if len(text) > 1000 else text
-
-            # 构建 prompt
-            prompt = prompt_template.format(text=text_excerpt)
-
-            # 调用 LLM 提取关键词
-            response = self.llm_client.generate(prompt, max_tokens=300)
-
-            # 解析响应
-            lines = response.strip().split('\n')
-            keywords = []
-
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-
-                # 移除可能的序号（1. 2. 或 1) 2) 等）
-                line = re.sub(r'^\d+[\.\)]\s*', '', line)
-                # 移除可能的引号
-                line = line.strip('"\'')
-                # 移除可能的项目符号
-                line = re.sub(r'^[-*]\s*', '', line)
-
-                if line and len(line) >= 2:
-                    keywords.append(line)
-
-            # 限制关键词数量
-            keywords = keywords[:15]
-
-            if keywords:
-                logger.info(f"LLM 提取到 {len(keywords)} 个关键词: {', '.join(keywords[:5])}...")
-            else:
-                logger.warning("LLM 未提取到关键词，回退到正则提取")
-                return self._extract_keywords_regex(text)
-
-            return keywords
-
-        except Exception as e:
-            logger.warning(f"LLM 关键词提取失败，回退到正则提取: {e}")
-            # 回退到正则表达式提取
-            return self._extract_keywords_regex(text)
-
-    def _extract_keywords_regex(self, text: str) -> List[str]:
-        """
-        使用正则表达式提取关键词（备用方案）
-
-        Args:
-            text: 文档文本内容
-
-        Returns:
-            关键词列表
-        """
-        keywords = []
-
-        # 正则模式
-        patterns = [
-            r'\b[A-Z]{2,}\b',                    # 大写缩写：NVMe, CSTS
-            r'\b[A-Z][a-z]+(?:[A-Z][a-z]+)+\b',  # 驼峰命名：ReadyState
-            r'\b[a-z_]+_[a-z_]+\b',              # 下划线命名：nvme_reset
-        ]
-
-        for pattern in patterns:
-            matches = re.findall(pattern, text)
-            keywords.extend(matches)
-
-        # 去重并过滤短词
-        min_length = self.config['retrieval']['search']['min_match_length']
-        keywords = list(set(k for k in keywords if len(k) >= min_length))
-
-        return keywords[:15]  # 限制数量
 
     def _extract_images(self, content: str) -> List[Dict[str, str]]:
         """
@@ -670,7 +616,8 @@ class DocumentAnalyzer:
         self,
         doc_path: Path,
         results: List[AnalysisResult],
-        output_path: Optional[str] = None
+        output_path: Optional[str] = None,
+        section_groups: Optional[List[SectionGroup]] = None
     ) -> Path:
         """生成最终的 Markdown 报告"""
         # 确定输出路径
@@ -696,6 +643,14 @@ class DocumentAnalyzer:
         report_lines.append(f"**分析时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         report_lines.append(f"**配置文件**: {self.config_path}\n")
         report_lines.append(f"**LLM 模型**: {self.config['llm']['model']}\n")
+
+        # 添加分析策略信息
+        strategy = self.config.get('splitting', {}).get('strategy', 'fixed')
+        if strategy == 'smart' and section_groups:
+            report_lines.append(f"**分析策略**: 智能合并 ({len(section_groups)} 个小节组)\n")
+        else:
+            report_lines.append(f"**分析策略**: 固定拆分 ({len(results)} 个小节)\n")
+
         report_lines.append("\n---\n")
 
         # 目录
@@ -703,17 +658,38 @@ class DocumentAnalyzer:
             report_lines.append("\n## 目录\n")
             for i, result in enumerate(results, 1):
                 anchor = self._generate_anchor(result.section.title, i)
-                report_lines.append(f"- [第 {i} 节：{result.section.title}](#{anchor})\n")
+                title = result.section.title
+
+                # 如果有小节组信息，显示包含的小节
+                if hasattr(result, 'section_group') and result.section_group:
+                    group = result.section_group
+                    if len(group.sections) > 1:
+                        title = f"{title} (包含 {len(group.sections)} 个小节)"
+
+                report_lines.append(f"- [第 {i} 组：{title}](#{anchor})\n")
             report_lines.append("- [总结](#总结)\n")
             report_lines.append("\n---\n")
 
-        # 各小节分析
+        # 各小节/小节组分析
         for i, result in enumerate(results, 1):
-            report_lines.append(f"\n## 第 {i} 节：{result.section.title}\n")
+            # 检查是否有小节组信息
+            if hasattr(result, 'section_group') and result.section_group:
+                group = result.section_group
+                report_lines.append(f"\n## 第 {i} 组：{result.section.title}\n")
 
-            # 原始内容
+                # 显示包含的小节
+                if len(group.sections) > 1:
+                    report_lines.append(f"\n**包含小节**: {', '.join(group.section_titles)}\n")
+                    report_lines.append(f"**总字符数**: {group.total_chars}\n")
+            else:
+                report_lines.append(f"\n## 第 {i} 节：{result.section.title}\n")
+
+            # 原始内容（简化显示）
             report_lines.append("\n### 原始内容\n")
-            report_lines.append(f"> {result.section.content[:500]}{'...' if len(result.section.content) > 500 else ''}\n")
+            content_preview = result.section.content[:500]
+            if len(result.section.content) > 500:
+                content_preview += "..."
+            report_lines.append(f"> {content_preview}\n")
 
             # 图片引用
             if result.image_references:
@@ -726,22 +702,30 @@ class DocumentAnalyzer:
                         report_lines.append(f"\n**图片分析**:\n")
                         report_lines.append(f"{result.image_analyses[img['path']]}\n")
 
-            # 检索到的上下文
+            # 提取的关键词
+            if result.keywords:
+                report_lines.append(f"\n**关键词**: {', '.join(result.keywords[:10])}\n")
+
+            # 检索到的上下文（简化显示）
             report_lines.append("\n### 检索到的相关上下文\n")
 
             if result.retrieval_context.code_snippets:
                 report_lines.append(f"\n#### 代码参考 ({len(result.retrieval_context.code_snippets)} 个匹配)\n")
-                for snippet in result.retrieval_context.code_snippets:
+                for snippet in result.retrieval_context.code_snippets[:3]:  # 只显示前3个
                     report_lines.append(f"\n**文件**: `{snippet.file_path}:{snippet.line_start}-{snippet.line_end}`\n")
                     report_lines.append(f"```\n{snippet.content}\n```\n")
+                if len(result.retrieval_context.code_snippets) > 3:
+                    report_lines.append(f"\n（还有 {len(result.retrieval_context.code_snippets) - 3} 个匹配未显示）\n")
             else:
                 report_lines.append("\n#### 代码参考\n\n（未找到相关代码）\n")
 
             if result.retrieval_context.doc_snippets:
                 report_lines.append(f"\n#### 需求文档参考 ({len(result.retrieval_context.doc_snippets)} 个匹配)\n")
-                for snippet in result.retrieval_context.doc_snippets:
+                for snippet in result.retrieval_context.doc_snippets[:3]:  # 只显示前3个
                     report_lines.append(f"\n**文件**: `{snippet.file_path}:{snippet.line_start}-{snippet.line_end}`\n")
                     report_lines.append(f"> {snippet.content}\n")
+                if len(result.retrieval_context.doc_snippets) > 3:
+                    report_lines.append(f"\n（还有 {len(result.retrieval_context.doc_snippets) - 3} 个匹配未显示）\n")
             else:
                 report_lines.append("\n#### 需求文档参考\n\n（未找到相关文档）\n")
 
@@ -753,7 +737,7 @@ class DocumentAnalyzer:
         # 总结
         if self.config['report']['include_summary']:
             report_lines.append("\n## 总结\n")
-            report_lines.append(self._generate_summary(results))
+            report_lines.append(self._generate_summary(results, section_groups))
 
         # 写入文件
         report_content = ''.join(report_lines)
@@ -793,7 +777,7 @@ class DocumentAnalyzer:
 
         return anchor
 
-    def _generate_summary(self, results: List[AnalysisResult]) -> str:
+    def _generate_summary(self, results: List[AnalysisResult], section_groups: Optional[List[SectionGroup]] = None) -> str:
         """生成总结统计"""
         total_sections = len(results)
         total_code_snippets = sum(len(r.retrieval_context.code_snippets) for r in results)
@@ -802,7 +786,16 @@ class DocumentAnalyzer:
 
         summary_lines = []
         summary_lines.append("\n### 统计信息\n")
-        summary_lines.append(f"- **总小节数**: {total_sections}\n")
+
+        # 如果使用了智能分组，显示分组信息
+        if section_groups:
+            original_sections = sum(len(g.sections) for g in section_groups)
+            summary_lines.append(f"- **原始小节数**: {original_sections}\n")
+            summary_lines.append(f"- **合并后小节组数**: {total_sections}\n")
+            summary_lines.append(f"- **压缩率**: {(1 - total_sections/original_sections)*100:.1f}%\n")
+        else:
+            summary_lines.append(f"- **总小节数**: {total_sections}\n")
+
         summary_lines.append(f"- **检索到的代码片段**: {total_code_snippets}\n")
         summary_lines.append(f"- **检索到的文档片段**: {total_doc_snippets}\n")
         summary_lines.append(f"- **包含的图片**: {total_images}\n")
