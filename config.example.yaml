@@ -205,8 +205,8 @@ custom_analyzers:
 # 日志配置
 logging:
   level: "INFO"              # 日志级别: DEBUG, INFO, WARNING, ERROR, CRITICAL
-  format: "json"             # 日志格式: json (结构化) 或 text (传统格式)
-  output_file: null          # 可选：日志文件路径，null 表示只输出到控制台
+  format: "text"             # 日志格式: json (结构化) 或 text (传统格式，更易读)
+  output_file: "logs/analyze.log"  # 可选：日志文件路径，null 表示只输出到控制台
 
 # ============================================================================
 # 配置说明

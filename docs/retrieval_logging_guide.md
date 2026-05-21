@@ -9,6 +9,38 @@
 
 现在所有检索过程都会输出详细的日志，帮助你了解检索的详细过程。
 
+## 📍 日志存储位置
+
+### 当前配置
+
+日志会同时输出到：
+1. **控制台** - 实时查看
+2. **日志文件** - `logs/analyze.log`（完整路径：`C:\Users\Administrator\Documents\Code\my-code\ai-tools\logs\analyze.log`）
+
+### 修改日志位置
+
+在 `config.yaml` 中修改：
+
+```yaml
+logging:
+  level: INFO              # 日志级别：DEBUG, INFO, WARNING, ERROR
+  format: text             # 格式：text (易读) 或 json (结构化)
+  output_file: "logs/analyze.log"   # 日志文件路径（null = 只输出到控制台）
+```
+
+### 查看日志文件
+
+```bash
+# Windows
+type logs\analyze.log
+
+# Linux/Mac
+cat logs/analyze.log
+
+# 实时查看（tail）
+tail -f logs/analyze.log
+```
+
 ## 日志输出示例
 
 ### 1. 关键词提取日志
