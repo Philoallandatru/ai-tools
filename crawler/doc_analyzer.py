@@ -502,12 +502,12 @@ class DocumentAnalyzer:
                             snippet = self._format_code_snippet(match, keyword, code_context_lines)
                             if snippet:
                                 code_snippets.append(snippet)
-                                logger.info(f"          ✓ 已添加代码片段 (行 {snippet.line_start}-{snippet.line_end})")
+                                logger.info(f"          [OK] 已添加代码片段 (行 {snippet.line_start}-{snippet.line_end})")
                     else:
                         logger.info(f"      未找到匹配的代码文件")
 
                 except Exception as e:
-                    logger.warning(f"      ✗ 检索失败: {e}")
+                    logger.warning(f"      [ERROR] 检索失败: {e}")
 
             logger.info(f"\n  [代码检索] 完成，共收集 {len(code_snippets)} 个代码片段")
 
@@ -557,12 +557,12 @@ class DocumentAnalyzer:
                             snippet = self._format_code_snippet(match, keyword, doc_context_lines)
                             if snippet:
                                 doc_snippets.append(snippet)
-                                logger.info(f"          ✓ 已添加文档片段 (行 {snippet.line_start}-{snippet.line_end})")
+                                logger.info(f"          [OK] 已添加文档片段 (行 {snippet.line_start}-{snippet.line_end})")
                     else:
                         logger.info(f"      未找到匹配的文档文件")
 
                 except Exception as e:
-                    logger.warning(f"      ✗ 检索失败: {e}")
+                    logger.warning(f"      [ERROR] 检索失败: {e}")
 
             logger.info(f"\n  [文档检索] 完成，共收集 {len(doc_snippets)} 个文档片段")
 
